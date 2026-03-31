@@ -28,6 +28,13 @@
     </section>
 
     <section class="card">
+      <h2>Remote log forwarding</h2>
+      <p>Optional: send a test log event to your HTTP log endpoint.</p>
+      <label>Log endpoint URL <input id="logEndpoint" type="text" placeholder="http://192.168.1.10:3030/tv-log" /></label>
+      <button id="sendRemoteLogBtn">Send test log to server</button>
+    </section>
+
+    <section class="card">
       <h2>Debug helper</h2>
       <p>Use this to verify logs are visible from your PC over <code>sdb dlog</code>.</p>
       <button id="debugBtn">Emit test debug log</button>

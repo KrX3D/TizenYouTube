@@ -24,6 +24,7 @@
     });
 
     document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
+    document.getElementById('sendRemoteLogBtn').addEventListener('click', sendRemoteLog);
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Back') {
@@ -69,6 +70,33 @@
     } catch (error) {
       apiOutputEl.textContent = `Request failed: ${error.message}`;
       log(`YouTube request failed: ${error.message}`);
+    }
+  }
+
+  async function sendRemoteLog() {
+    const endpoint = document.getElementById('logEndpoint').value.trim();
+    if (!endpoint) {
+      log('Remote log endpoint is empty.');
+      return;
+    }
+
+    const payload = {
+      app: 'TizenYouTube',
+      ts: new Date().toISOString(),
+      message: 'Manual remote log test from TV app'
+    };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      log(`Remote log sent to ${endpoint}`);
+    } catch (error) {
+      log(`Remote log failed: ${error.message}`);
     }
   }
 

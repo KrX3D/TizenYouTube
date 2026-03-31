@@ -6,14 +6,6 @@ A minimal Samsung Tizen TV web app starter that runs on **Tizen 5.5+** and helps
 - remote debug logs,
 - first YouTube Data API integration using `playlistItems.list`.
 
-## Is YouTube API v3 the newest?
-
-For the public **YouTube Data API**, `v3` is still the current production version. This starter uses:
-
-- `GET https://www.googleapis.com/youtube/v3/playlistItems`
-
-Important: this API does **not** expose everything the official YouTube TV app can do (private/internal APIs, account UX, DRM player flows, recommendation engine behavior, etc.).
-
 ## Project structure
 
 - `app/` — Tizen Web App source (`config.xml`, `index.html`, `main.js`)
@@ -53,10 +45,43 @@ sdb dlog | grep TizenYouTube
 
 4. Launch app and press **Emit test debug log**.
 
-### Option B: Forward logs to your own server
+### PowerShell helper (save `sdb dlog` to file)
+
+Use `scripts_collect_logs.ps1` from your PC:
+
+```powershell
+pwsh -File .\scripts_collect_logs.ps1 -TvIp 192.168.1.50
+```
+
+It will:
+- connect to TV,
+- print devices,
+- stream `sdb dlog` filtered for `TizenYouTube`,
+- save logs next to the script as `tizen_dlog_yyyyMMdd_HHmmss.log`.
+
+### Option B: Forward logs to your own server (HTTP)
 
 From a web app, direct UDP syslog is usually not available due to sandbox/network limitations.
-Use HTTP(S) ingestion instead (e.g., tiny local endpoint) and post logs from JS.
+A practical replacement is posting JSON logs to an HTTP endpoint you control.
+
+Minimal Node receiver example:
+
+```js
+import express from 'express';
+import fs from 'node:fs';
+
+const app = express();
+app.use(express.json({ limit: '1mb' }));
+
+app.post('/tv-log', (req, res) => {
+  fs.appendFileSync('tv.log', JSON.stringify(req.body) + '\n');
+  res.status(204).end();
+});
+
+app.listen(3030, () => console.log('Log receiver on :3030'));
+```
+
+Then from your app you can `fetch('http://<PC_IP>:3030/tv-log', { method: 'POST', body: ... })`.
 
 ## GitHub Action secrets
 
@@ -67,7 +92,17 @@ The included workflow expects:
 
 Without these secrets, build can run but signed packaging step will fail.
 
+Releases are created automatically on `v*.*.*` tag pushes, or manually via `workflow_dispatch` by setting `release_version` and `publish_release=true`.
+
 The workflow uses an explicit profile with both **author** and **distributor** entries, which resolves the common `Both an author and a first distributor must be required` packaging error.
+
+## Icons
+
+Yes, you should add your own icon for production.
+
+- Recommended: at least **117x117 PNG** for Tizen app icon usage.
+- Practical starter set: `117x117`, `256x256`, and `512x512` PNG (keep source in `/assets/icons`).
+- In this repo, CI currently generates a placeholder `app/icon.png` so builds always work.
 
 ## License
 
