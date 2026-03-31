@@ -22,8 +22,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  create_tag:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -33,47 +32,47 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create next semantic tag
+      - name: Bump version and push tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-          if [ -z "$LAST_TAG" ]; then
-            NEW_TAG="v0.1.0"
-          else
-            MAJOR=$(echo "$LAST_TAG" | sed 's/^v//' | cut -d. -f1)
-            MINOR=$(echo "$LAST_TAG" | sed 's/^v//' | cut -d. -f2)
-            PATCH=$(echo "$LAST_TAG" | sed 's/^v//' | cut -d. -f3)
-            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
-          fi
+          CURRENT=$(grep '<widget' app/config.xml | grep -oP '(?<=version=")[^"]+')
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          RELEASE_VERSION="v${NEW_VERSION}"
 
-          echo "Creating tag: $NEW_TAG"
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
+          sed -i "s/version=\"${CURRENT}\"/version=\"${NEW_VERSION}\"/" app/config.xml
 
-  build:
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add app/config.xml
+          git commit -m "chore: bump version to ${RELEASE_VERSION} [skip ci]"
+          git push origin HEAD
 
-      - name: Resolve release variables
-        id: rel
+          git tag "${RELEASE_VERSION}"
+          git push origin "${RELEASE_VERSION}"
+
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "publish_release=true" >> "$GITHUB_ENV"
+
+      - name: Set version from tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            RELEASE_VERSION="${GITHUB_REF#refs/tags/}"
-            PUBLISH_RELEASE="true"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.release_version }}" ]]; then
+          RELEASE_VERSION="${GITHUB_REF#refs/tags/}"
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "publish_release=true" >> "$GITHUB_ENV"
+
+      - name: Set version from manual input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ -n "${{ github.event.inputs.release_version }}" ]; then
             RELEASE_VERSION="${{ github.event.inputs.release_version }}"
-            PUBLISH_RELEASE="${{ github.event.inputs.publish_release }}"
           else
             RELEASE_VERSION=""
-            PUBLISH_RELEASE="false"
           fi
-
-          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "publish_release=${{ github.event.inputs.publish_release }}" >> "$GITHUB_ENV"
 
       - name: Install tooling
         run: |
@@ -111,6 +110,9 @@ jobs:
           if [ -f assets/icons/icon-512.png ]; then
             cp assets/icons/icon-512.png app/icon.png
             echo "Using assets/icons/icon-512.png"
+          elif [ -f .github/assets/icon.png ]; then
+            cp .github/assets/icon.png app/icon.png
+            echo "Using .github/assets/icon.png"
           else
             echo 'iVBORw0KGgoAAAANSUhEUgAAAHEAAABxCAYAAADVEh4BAAAAOklEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4NcBNKQAAfI5N0wAAAAASUVORK5CYII=' | base64 -d > app/icon.png
             echo "No source icon found, generated placeholder app/icon.png"
@@ -134,10 +136,10 @@ jobs:
           path: dist/TizenYouTube.wgt
 
       - name: Publish GitHub Release
-        if: steps.rel.outputs.publish_release == 'true'
+        if: env.publish_release == 'true' && env.release_version != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.rel.outputs.release_version }}
-          name: TizenYouTube ${{ steps.rel.outputs.release_version }}
+          tag_name: ${{ env.release_version }}
+          name: TizenYouTube ${{ env.release_version }}
           files: dist/TizenYouTube.wgt
           generate_release_notes: true

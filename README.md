@@ -25,7 +25,7 @@ Set app endpoint to `http://<PC_IP>:3030/tv-log` and use **Send test log to serv
 
 ## Release behavior
 
-- Push to `main`: creates next semantic tag (`vX.Y.Z`, patch increments).
+- Push to `main`: bumps `app/config.xml` patch version, commits, creates `vX.Y.Z` tag, builds WGT, and publishes release.
 - Tag push (`v*.*.*`): builds `.wgt`, uploads artifact, and publishes GitHub Release.
 - `workflow_dispatch`: build manually; set `release_version` + `publish_release=true` to publish release.
 
@@ -34,4 +34,4 @@ Set app endpoint to `http://<PC_IP>:3030/tv-log` and use **Send test log to serv
 - Runtime icon file is `app/icon.png` (from `config.xml`).
 - Put your source icon at `assets/icons/icon-512.png`.
 - Optional alt: `assets/icons/icon-512_alternative.png`.
-- CI copies `assets/icons/icon-512.png` to `app/icon.png`, or generates a placeholder if missing.
+- CI uses `assets/icons/icon-512.png` first, then `.github/assets/icon.png`, otherwise generates a placeholder.
