@@ -22,7 +22,38 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  bump_version:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Bump patch version and create tag
+        run: |
+          CURRENT=$(grep '<widget' app/config.xml | grep -oP '(?<=version=")[^"]+')
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          RELEASE_TAG="v${NEW_VERSION}"
+
+          sed -i "s/version=\"${CURRENT}\"/version=\"${NEW_VERSION}\"/" app/config.xml
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add app/config.xml
+          git commit -m "chore: bump version to ${RELEASE_TAG} [skip ci]"
+          git tag "${RELEASE_TAG}"
+          git push origin HEAD
+          git push origin "${RELEASE_TAG}"
+
   build:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -84,16 +115,13 @@ jobs:
             cp assets/icons/icon-512.png app/icon.png
             echo "Using assets/icons/icon-512.png"
           else
-            base64 -d > app/icon.png <<'EOF_ICON'
-            iVBORw0KGgoAAAANSUhEUgAAAHEAAABxCAYAAADVEh4BAAAAOklEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4NcBNKQAAfI5N0wAAAAASUVORK5CYII=
-            EOF_ICON
+            echo 'iVBORw0KGgoAAAANSUhEUgAAAHEAAABxCAYAAADVEh4BAAAAOklEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4NcBNKQAAfI5N0wAAAAASUVORK5CYII=' | base64 -d > app/icon.png
             echo "No source icon found, generated placeholder app/icon.png"
           fi
 
       - name: Build web app
         working-directory: app
-        run: |
-          tizen build-web -e ".gitignore" -e "README.md"
+        run: tizen build-web -e ".gitignore" -e "README.md"
 
       - name: Package WGT
         working-directory: app
