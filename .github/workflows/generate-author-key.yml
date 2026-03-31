@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Generate author certificate and PKCS#12
+        env:
+          CERT_PASSWORD: ${{ github.event.inputs.cert_password }}
         run: |
           mkdir -p out
           openssl genrsa -out out/author.key 2048
@@ -26,7 +28,7 @@ jobs:
             -in out/author.crt \
             -name "tizen-author" \
             -out out/author.p12 \
-            -passout pass:"${{ github.event.inputs.cert_password }}"
+            -passout env:CERT_PASSWORD
 
       - name: Create base64 for GitHub secret
         run: |
