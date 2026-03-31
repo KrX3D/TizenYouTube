@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
-        id="com.krx3d.tizenyoutube"
+        id="http://krx3d.com/tizenyoutube"
         version="0.1.0"
         viewmodes="maximized">
   <name>TizenYouTube</name>
@@ -9,8 +9,8 @@
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.normal.1080.1080"/>
 
-  <tizen:application id="com.krx3d.tizenyoutube"
-                     package="krx3dytv"
+  <tizen:application id="tzyoutube1.TizenYouTube"
+                     package="tzyoutube1"
                      required_version="5.5"/>
   <tizen:profile name="tv-samsung"/>
   <tizen:setting screen-orientation="landscape"
