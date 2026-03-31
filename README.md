@@ -25,7 +25,7 @@ Set app endpoint to `http://<PC_IP>:3030/tv-log` and use **Send test log to serv
 
 ## Release behavior
 
-- Push to `main`: bumps `app/config.xml` patch version, commits, creates `vX.Y.Z` tag, builds WGT, and publishes release.
+- Push to `main`: creates next semantic tag (`vX.Y.Z`), builds WGT, and publishes release.
 - Tag push (`v*.*.*`): builds `.wgt`, uploads artifact, and publishes GitHub Release.
 - `workflow_dispatch`: build manually; set `release_version` + `publish_release=true` to publish release.
 
