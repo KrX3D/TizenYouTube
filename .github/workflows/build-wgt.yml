@@ -78,12 +78,17 @@ jobs:
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
-      - name: Generate placeholder icon
-        working-directory: app
+      - name: Prepare app icon
         run: |
-          base64 -d > icon.png <<'EOF_ICON'
-          iVBORw0KGgoAAAANSUhEUgAAAHEAAABxCAYAAADVEh4BAAAAOklEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4NcBNKQAAfI5N0wAAAAASUVORK5CYII=
-          EOF_ICON
+          if [ -f assets/icons/icon-512.png ]; then
+            cp assets/icons/icon-512.png app/icon.png
+            echo "Using assets/icons/icon-512.png"
+          else
+            base64 -d > app/icon.png <<'EOF_ICON'
+            iVBORw0KGgoAAAANSUhEUgAAAHEAAABxCAYAAADVEh4BAAAAOklEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4NcBNKQAAfI5N0wAAAAASUVORK5CYII=
+            EOF_ICON
+            echo "No source icon found, generated placeholder app/icon.png"
+          fi
 
       - name: Build web app
         working-directory: app

@@ -35,6 +35,9 @@ tizen package -t wgt -s <profile-name> -- ./
 Your app does **not** connect to port `26101`, and you should **not** set app host to `localhost` for this.
 For app HTTP logging, use your PC LAN IP (example `http://192.168.1.10:3030/tv-log`).
 
+If another project (like TizenBrew) uses `localhost:26101`, that's for a specific local process/debug flow in that project context.
+For this app's API/log forwarding, keep using normal HTTP endpoints (PC/server IP + port).
+
 ### Option A: `sdb dlog` (recommended)
 
 1. Enable developer mode on TV.
@@ -97,6 +100,8 @@ For this app, Tizen currently reads the icon from:
 So the required runtime file name is **`icon.png`** in the `app/` root.
 
 Recommended workflow:
-- Keep your source design files in `assets/icons/` (example: `assets/icons/icon-512.png`).
-- During CI/local build, copy/resize to `app/icon.png`.
-- Use square PNG; `512x512` source is ideal, and output `app/icon.png` can be `117x117` or higher.
+- Put your main icon at `assets/icons/icon-512.png`.
+- Optional alt can stay as `assets/icons/icon-512_alternative.png`.
+- CI copies `assets/icons/icon-512.png` to `app/icon.png` automatically.
+- If missing, CI generates a placeholder `app/icon.png` so builds still pass.
+- Use square PNG; `512x512` source is ideal.
