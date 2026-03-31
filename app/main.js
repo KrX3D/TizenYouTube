@@ -4,6 +4,7 @@
   const platformEl = document.getElementById('platform');
   const logOutputEl = document.getElementById('logOutput');
   const apiOutputEl = document.getElementById('apiOutput');
+  const logEndpointEl = document.getElementById('logEndpoint');
 
   function log(message) {
     const line = `[TizenYouTube] ${new Date().toISOString()} ${message}`;
@@ -24,7 +25,12 @@
     });
 
     document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
-    document.getElementById('sendRemoteLogBtn').addEventListener('click', sendRemoteLog);
+    logEndpointEl.value = localStorage.getItem('tizenYoutubeLogEndpoint') || '';
+    logEndpointEl.addEventListener('change', () => {
+      localStorage.setItem('tizenYoutubeLogEndpoint', logEndpointEl.value.trim());
+    });
+
+    document.getElementById('sendRemoteLogBtn').addEventListener('click', () => sendRemoteLog('manual-test'));
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Back') {
@@ -33,6 +39,9 @@
     });
 
     log('Initialization complete.');
+    if (logEndpointEl.value.trim()) {
+      sendRemoteLog('startup');
+    }
   }
 
   async function fetchPlaylistItems() {
@@ -73,8 +82,8 @@
     }
   }
 
-  async function sendRemoteLog() {
-    const endpoint = document.getElementById('logEndpoint').value.trim();
+  async function sendRemoteLog(eventType) {
+    const endpoint = logEndpointEl.value.trim();
     if (!endpoint) {
       log('Remote log endpoint is empty.');
       return;
@@ -83,7 +92,9 @@
     const payload = {
       app: 'TizenYouTube',
       ts: new Date().toISOString(),
-      message: 'Manual remote log test from TV app'
+      eventType: eventType || 'manual-test',
+      message: 'Remote log event from TV app',
+      startupTime: performance.now()
     };
 
     try {

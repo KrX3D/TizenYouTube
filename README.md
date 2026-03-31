@@ -31,6 +31,10 @@ tizen package -t wgt -s <profile-name> -- ./
 
 ## Debug logs from TV to PC
 
+`26101` is used by **SDB (debug tooling)** between your PC and TV.
+Your app does **not** connect to port `26101`, and you should **not** set app host to `localhost` for this.
+For app HTTP logging, use your PC LAN IP (example `http://192.168.1.10:3030/tv-log`).
+
 ### Option A: `sdb dlog` (recommended)
 
 1. Enable developer mode on TV.
@@ -61,27 +65,14 @@ It will:
 
 ### Option B: Forward logs to your own server (HTTP)
 
-From a web app, direct UDP syslog is usually not available due to sandbox/network limitations.
-A practical replacement is posting JSON logs to an HTTP endpoint you control.
+Start a local receiver on your PC:
 
-Minimal Node receiver example:
-
-```js
-import express from 'express';
-import fs from 'node:fs';
-
-const app = express();
-app.use(express.json({ limit: '1mb' }));
-
-app.post('/tv-log', (req, res) => {
-  fs.appendFileSync('tv.log', JSON.stringify(req.body) + '\n');
-  res.status(204).end();
-});
-
-app.listen(3030, () => console.log('Log receiver on :3030'));
+```powershell
+pwsh -File .\scripts_log_receiver.ps1 -Port 3030
 ```
 
-Then from your app you can `fetch('http://<PC_IP>:3030/tv-log', { method: 'POST', body: ... })`.
+Then in TV app set endpoint to `http://<PC_IP>:3030/tv-log` and press **Send test log to server**.
+The app also sends a `startup` event automatically when endpoint is set.
 
 ## GitHub Action secrets
 
@@ -98,13 +89,14 @@ The workflow uses an explicit profile with both **author** and **distributor** e
 
 ## Icons
 
-Yes, you should add your own icon for production.
+For this app, Tizen currently reads the icon from:
 
-- Recommended: at least **117x117 PNG** for Tizen app icon usage.
-- Practical starter set: `117x117`, `256x256`, and `512x512` PNG (keep source in `/assets/icons`).
-- In this repo, CI currently generates a placeholder `app/icon.png` so builds always work.
+- `app/config.xml` → `<icon src="icon.png"/>`
+- File path must be: `app/icon.png`
 
-## License
+So the required runtime file name is **`icon.png`** in the `app/` root.
 
-This repository uses the **MIT License**, which is a good default for starter templates and sample apps.
-If you want stronger copyleft requirements, switch to GPL-3.0.
+Recommended workflow:
+- Keep your source design files in `assets/icons/` (example: `assets/icons/icon-512.png`).
+- During CI/local build, copy/resize to `app/icon.png`.
+- Use square PNG; `512x512` source is ideal, and output `app/icon.png` can be `117x117` or higher.
