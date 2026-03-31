@@ -7,23 +7,16 @@ Minimal Samsung Tizen TV web app starter for Tizen 5.5+.
 - `26101` is for **SDB** between PC and TV.
 - Your app should **not** use `localhost:26101` for API/logging.
 - For app log forwarding, use your PC/server LAN IP (for example `http://192.168.1.10:3030/tv-log`).
+- If another project (like TizenBrew) uses `localhost:26101`, that is specific to that project's internal flow.
 
 ## Log collection
 
-### A) `sdb dlog` to file
-
 ```powershell
 pwsh -File .\scripts_collect_logs.ps1 -TvIp 192.168.1.50
-```
-
-### B) Local HTTP receiver (PowerShell)
-
-```powershell
 pwsh -File .\scripts_log_receiver.ps1 -Port 3030
 ```
 
 Set app endpoint to `http://<PC_IP>:3030/tv-log` and use **Send test log to server**.
-The app also sends a `startup` event automatically when endpoint is set.
 
 ## CI secrets
 
@@ -32,8 +25,8 @@ The app also sends a `startup` event automatically when endpoint is set.
 
 ## Release behavior
 
-- Push to `main`: workflow bumps patch version in `app/config.xml`, commits it, and creates/pushes a new `v*.*.*` tag.
-- Tag push (`v*.*.*`): workflow builds `.wgt`, uploads artifact, and publishes GitHub Release.
+- Push to `main`: creates next semantic tag (`vX.Y.Z`, patch increments).
+- Tag push (`v*.*.*`): builds `.wgt`, uploads artifact, and publishes GitHub Release.
 - `workflow_dispatch`: build manually; set `release_version` + `publish_release=true` to publish release.
 
 ## Icons
