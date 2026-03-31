@@ -43,14 +43,9 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/tizen-data/profile"
           echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
 
-          cat > "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml" <<XML
-          <?xml version="1.0" encoding="UTF-8"?>
-          <profiles active="default">
-            <profile name="default">
-              <profileitem ca="" distributor="0" key="${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12" password="${AUTHOR_P12_PASSWORD}" rootca="" signer="AUTHOR"/>
-            </profile>
-          </profiles>
-          XML
+          cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
+          sed -i "s|\$GITHUB_WORKSPACE|${GITHUB_WORKSPACE}|g" "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
+          sed -i "s|\$KEY_PW|${AUTHOR_P12_PASSWORD}|g" "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
@@ -69,7 +64,7 @@ jobs:
       - name: Package WGT
         working-directory: app
         run: |
-          tizen package -t wgt -s default -- ./
+          tizen package -t wgt -s TizenYouTube -- ./
           mkdir -p ../dist
           cp *.wgt ../dist/TizenYouTube.wgt
 

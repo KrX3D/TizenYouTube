@@ -67,6 +67,8 @@ The included workflow expects:
 
 Without these secrets, build can run but signed packaging step will fail.
 
+The workflow uses an explicit profile with both **author** and **distributor** entries, which resolves the common `Both an author and a first distributor must be required` packaging error.
+
 ## License
 
 This repository uses the **MIT License**, which is a good default for starter templates and sample apps.
