@@ -1,0 +1,80 @@
+name: Build TizenYouTube WGT
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+  workflow_dispatch:
+
+env:
+  TIZEN_STUDIO_VER: 5.6
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y expect zip unzip
+
+      - name: Download Tizen Studio CLI
+        run: |
+          curl -fL -o tizen-installer \
+            "https://download.tizen.org/sdk/Installer/tizen-studio_${TIZEN_STUDIO_VER}/web-cli_Tizen_Studio_${TIZEN_STUDIO_VER}_ubuntu-64.bin"
+          chmod +x tizen-installer
+
+      - name: Install Tizen Studio CLI
+        run: |
+          ./tizen-installer --accept-license "${GITHUB_WORKSPACE}/tizen-studio"
+          echo "${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin" >> $GITHUB_PATH
+
+      - name: Configure certificate profile
+        env:
+          AUTHOR_P12_B64: ${{ secrets.TIZEN_AUTHOR_KEY_B64 }}
+          AUTHOR_P12_PASSWORD: ${{ secrets.TIZEN_AUTHOR_KEY_PW }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/tizen-data/keystore/author"
+          mkdir -p "${GITHUB_WORKSPACE}/tizen-data/profile"
+          echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
+
+          cat > "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml" <<XML
+          <?xml version="1.0" encoding="UTF-8"?>
+          <profiles active="default">
+            <profile name="default">
+              <profileitem ca="" distributor="0" key="${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12" password="${AUTHOR_P12_PASSWORD}" rootca="" signer="AUTHOR"/>
+            </profile>
+          </profiles>
+          XML
+
+          tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
+
+      - name: Generate placeholder icon
+        working-directory: app
+        run: |
+          base64 -d > icon.png <<'EOF'
+          iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2LhykAAAAASUVORK5CYII=
+          EOF
+
+      - name: Build web app
+        working-directory: app
+        run: |
+          tizen build-web -e ".gitignore" -e "README.md"
+
+      - name: Package WGT
+        working-directory: app
+        run: |
+          tizen package -t wgt -s default -- ./
+          mkdir -p ../dist
+          cp *.wgt ../dist/TizenYouTube.wgt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tizen-youtube-wgt
+          path: dist/TizenYouTube.wgt
