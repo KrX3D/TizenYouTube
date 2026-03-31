@@ -23,6 +23,19 @@ Set app endpoint to `http://<PC_IP>:3030/tv-log` and use **Send test log to serv
 - `TIZEN_AUTHOR_KEY_B64`
 - `TIZEN_AUTHOR_KEY_PW`
 
+## Generate signing key (one-time)
+
+You can generate a reusable author key with this manual workflow:
+
+- Workflow: **Generate Tizen Author Key** (`.github/workflows/generate-author-key.yml`)
+- It outputs an artifact containing:
+  - `author.p12`
+  - `TIZEN_AUTHOR_KEY_B64.txt`
+
+Then set repo secrets:
+- `TIZEN_AUTHOR_KEY_B64` = contents of `TIZEN_AUTHOR_KEY_B64.txt`
+- `TIZEN_AUTHOR_KEY_PW` = password you entered in the workflow
+
 ## Release behavior
 
 - Push to `main`: creates next semantic tag (`vX.Y.Z`), builds WGT, and publishes release.
