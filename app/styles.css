@@ -37,6 +37,7 @@ input {
   border: 1px solid #555;
   background: #222;
   color: #eee;
+  outline: none;
 }
 
 button {
@@ -47,6 +48,7 @@ button {
   background: #2d5dff;
   color: #fff;
   cursor: pointer;
+  outline: none;
 }
 
 pre {
@@ -55,4 +57,20 @@ pre {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #2f2f2f;
+}
+
+/* TV remote focus styles — must be visible at 3m viewing distance */
+:focus {
+  outline: 4px solid #f0c040;
+  outline-offset: 2px;
+}
+
+button:focus {
+  background: #5577ff;
+  border-color: #f0c040;
+}
+
+input:focus {
+  border-color: #f0c040;
+  background: #2a2a2a;
 }

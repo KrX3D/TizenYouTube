@@ -75,6 +75,40 @@ jobs:
           echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
           echo "publish_release=${{ github.event.inputs.publish_release }}" >> "$GITHUB_ENV"
 
+      - name: Sync app version from release tag
+        if: env.release_version != ''
+        run: |
+          APP_VERSION="${{ env.release_version }}"
+          APP_VERSION="${APP_VERSION#v}"
+
+          # version= is on its own indented line in config.xml, separate from <widget.
+          # Match lines starting with whitespace + version= to avoid the <?xml version="1.0"?> declaration.
+          sed -i 's/^\(\s*\)version="[^"]*"/\1version="'"${APP_VERSION}"'"/' app/config.xml
+
+          node -e "
+            const fs = require('fs');
+            const p = 'app/package.json';
+            const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+            pkg.version = '${APP_VERSION}';
+            fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');
+            console.log('package.json version set to ${APP_VERSION}');
+          "
+          echo "Synchronized app/config.xml and app/package.json to version ${APP_VERSION}"
+
+      - name: Validate app version consistency
+        run: |
+          # Match lines starting with whitespace + version= (the widget attribute line).
+          # The <?xml version="1.0"?> declaration starts with <? so it never matches.
+          CONFIG_VER=$(grep -oP '^\s*version="\K[^"]+' app/config.xml)
+          PKG_VER=$(node -e "process.stdout.write(require('./app/package.json').version)")
+
+          echo "config.xml version : ${CONFIG_VER}"
+          echo "package.json version: ${PKG_VER}"
+
+          [[ "$CONFIG_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid config.xml version format: ${CONFIG_VER}"; exit 1; }
+          [ "$CONFIG_VER" = "$PKG_VER" ] || { echo "Version mismatch: config.xml=${CONFIG_VER} package.json=${PKG_VER}"; exit 1; }
+          echo "Version consistency OK: ${CONFIG_VER}"
+
       - name: Install tooling
         run: |
           sudo apt-get update
