@@ -273,7 +273,16 @@
 
   function applyDebugStyle() {
     var c = AppConfig.console, p = debugPanel;
-    p.style.width = c.width + 'px'; p.style.height = c.height + 'px'; p.style.opacity = String(c.opacity);
+    var vw = Math.max(1280, window.innerWidth || 1920);
+    var vh = Math.max(720, window.innerHeight || 1080);
+    var width = Math.min(Math.max(parseInt(c.width, 10) || 900, 420), vw - 40);
+    var height = Math.min(Math.max(parseInt(c.height, 10) || 500, 240), vh - 80);
+    var opacity = parseFloat(c.opacity);
+    if (isNaN(opacity)) opacity = 0.93;
+    opacity = Math.min(Math.max(opacity, 0.4), 1);
+    p.style.width = width + 'px';
+    p.style.height = height + 'px';
+    p.style.opacity = String(opacity);
     p.style.top = p.style.bottom = p.style.left = p.style.right = 'auto';
     if (c.position.indexOf('top')  >= 0) p.style.top    = '60px'; else p.style.bottom = '20px';
     if (c.position.indexOf('left') >= 0) p.style.left   = '20px'; else p.style.right  = '20px';
@@ -332,9 +341,17 @@
     if (inputDialogOpen) return;
 
     var isYellow = (e.keyCode === KEY.YELLOW || e.keyCode === 405 || e.key === 'ColorF2Yellow');
+    var isDebugFallback = (e.keyCode === KEY.RED || e.keyCode === 403 || e.key === 'ColorF0Red');
     if (isYellow) {
       e.preventDefault();
       Logger.info('debug-console', 'Yellow key pressed', { keyCode: e.keyCode, key: e.key });
+      if (activeOverlay === 'debug') closeOverlay();
+      else { settingsOverlay.classList.add('hidden'); playlistOverlay.classList.add('hidden'); activeOverlay = null; openDebugConsole(); }
+      return;
+    }
+    if (isDebugFallback) {
+      e.preventDefault();
+      Logger.info('debug-console', 'Red key debug fallback pressed', { keyCode: e.keyCode, key: e.key });
       if (activeOverlay === 'debug') closeOverlay();
       else { settingsOverlay.classList.add('hidden'); playlistOverlay.classList.add('hidden'); activeOverlay = null; openDebugConsole(); }
       return;
