@@ -142,9 +142,9 @@ pre {
 /* ── Focus ─────────────────────────────────────────────── */
 :focus         { outline: none; }
 button:focus,
-button:focus-visible   { background: #3366dd; border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
+button:focus-visible   { background: #3d76ff; border-color: #f0c040; box-shadow: 0 0 0 3px rgba(240,192,64,0.6); }
 input:focus,
-input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow: 0 0 0 2px rgba(240,192,64,0.35); }
+input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow: 0 0 0 3px rgba(240,192,64,0.55); }
 
 /* ── Overlay base ──────────────────────────────────────── */
 .overlay {
@@ -315,3 +315,7 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
 #playlistOverlay .input-row { gap: 18px; }
 #playlistOverlay #fetchBtn,
 #playlistOverlay #playlistCloseBtn { border-radius: 10px; }
+#playlistOverlay input:focus,
+#playlistOverlay button:focus { box-shadow: 0 0 0 3px rgba(240,192,64,0.7); }
+
+#launchBtn:focus { box-shadow: 0 0 0 4px rgba(240,192,64,0.75); border-color: #ffd36a; }
