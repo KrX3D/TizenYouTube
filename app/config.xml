@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://krx3d.com/tizenyoutube"
+        version="0.1.35"
+        viewmodes="maximized">
+  <name>TizenYouTube</name>
+  <access origin="*" subdomains="true"></access>
+  <icon src="icon.png"/>
+  <content src="index.html"/>
+  <feature name="http://tizen.org/feature/screen.size.all"/>
+
+  <tizen:application id="krx3dYtV01.TizenYouTube"
+                     package="krx3dYtV01"
+                     required_version="3.0"/>
+  <tizen:profile name="tv-samsung"/>
+  <tizen:setting screen-orientation="landscape"
+                 context-menu="enable"
+                 background-support="disable"
+                 encryption="disable"
+                 install-location="auto"
+                 hwkey-event="enable"/>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+  <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
+  <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
+</widget>
