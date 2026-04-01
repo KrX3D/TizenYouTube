@@ -122,7 +122,7 @@
 
     document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
 
-    logEndpointEl.value = localStorage.getItem('tizenYoutubeLogEndpoint') || '';
+    logEndpointEl.value = localStorage.getItem('tizenYoutubeLogEndpoint') || 'http://192.168.50.133:3030/tv-log';
     logEndpointEl.addEventListener('change', function () {
       localStorage.setItem('tizenYoutubeLogEndpoint', logEndpointEl.value.trim());
     });
