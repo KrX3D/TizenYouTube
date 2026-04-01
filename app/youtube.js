@@ -17,14 +17,28 @@
   var INJECTION_FILES = [
     'injections/bootstrap.js',
     'injections/fetchInterceptor.js',
-    'injections/adblock.js'
+    'injections/adblock.js',
+    'injections/ui/settings.js',
+    'injections/ui/customYTSettings.js'
   ];
 
   function loadScript(path, cb) {
+    Logger.debug('youtube', 'Loading injection script', { path: path });
     var xhr = new XMLHttpRequest();
     xhr.open('GET', path, true);
-    xhr.onload  = function () { cb(null, xhr.status === 200 ? xhr.responseText : ''); };
-    xhr.onerror = function () { cb(new Error('XHR error: ' + path)); };
+    xhr.onload  = function () {
+      if (xhr.status === 200) {
+        Logger.info('youtube', 'Loaded injection script', { path: path, bytes: xhr.responseText.length });
+        cb(null, xhr.responseText);
+        return;
+      }
+      Logger.warn('youtube', 'Injection script missing', { path: path, status: xhr.status });
+      cb(new Error('HTTP ' + xhr.status + ': ' + path));
+    };
+    xhr.onerror = function () {
+      Logger.error('youtube', 'Injection XHR error', { path: path });
+      cb(new Error('XHR error: ' + path));
+    };
     xhr.send();
   }
 
@@ -55,9 +69,19 @@
       // is retrieved by our service worker approach.
       // For now: store it so we can revisit the injection strategy.
       try {
+        var cfg = window.AppConfig && window.AppConfig.debug ? window.AppConfig.debug : {};
+        var endpoint = (cfg.serverIp && cfg.serverPort)
+          ? ('http://' + cfg.serverIp + ':' + cfg.serverPort + '/tv-log')
+          : '';
+        sessionStorage.setItem('__TYT_REMOTE_LOG_CFG__', JSON.stringify({
+          endpoint: cfg.remoteLogging ? endpoint : ''
+        }));
+
         sessionStorage.setItem('__TYT_INJECT__', scripts.join('\n;\n'));
         Logger.info('youtube', 'Injection scripts stored in sessionStorage', {
-          totalBytes: scripts.join('').length
+          totalBytes: scripts.join('').length,
+          files: INJECTION_FILES,
+          remoteEndpoint: endpoint
         });
       } catch (e) {
         Logger.warn('youtube', 'Could not store injection scripts', { error: e.message });

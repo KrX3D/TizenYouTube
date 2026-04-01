@@ -331,8 +331,10 @@
   document.addEventListener('keydown', function (e) {
     if (inputDialogOpen) return;
 
-    if (e.keyCode === KEY.YELLOW) {
+    var isYellow = (e.keyCode === KEY.YELLOW || e.keyCode === 405 || e.key === 'ColorF2Yellow');
+    if (isYellow) {
       e.preventDefault();
+      Logger.info('debug-console', 'Yellow key pressed', { keyCode: e.keyCode, key: e.key });
       if (activeOverlay === 'debug') closeOverlay();
       else { settingsOverlay.classList.add('hidden'); playlistOverlay.classList.add('hidden'); activeOverlay = null; openDebugConsole(); }
       return;
