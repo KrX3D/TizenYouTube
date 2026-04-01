@@ -8,15 +8,14 @@
 
   // ─── TV Remote key codes ───────────────────────────────────────────────────
   const KEY = {
-    UP:     38,
-    DOWN:   40,
-    LEFT:   37,
-    RIGHT:  39,
-    ENTER:  13,
-    BACK:   10009,
+    UP:    38,
+    DOWN:  40,
+    LEFT:  37,
+    RIGHT: 39,
+    ENTER: 13,
+    BACK:  10009,
   };
 
-  // Register remote keys with Tizen so they fire as keydown events
   function registerKeys() {
     try {
       var supportedKeys = tizen.tvinputdevice.getSupportedKeys();
@@ -33,31 +32,21 @@
   }
 
   // ─── Spatial navigation ────────────────────────────────────────────────────
-  // Collect all focusable elements in DOM order and move focus with arrow keys.
   function getFocusable() {
-    return Array.from(document.querySelectorAll(
-      'button, input, [tabindex="0"]'
-    )).filter(function (el) {
-      return !el.disabled && el.offsetParent !== null;
-    });
+    return Array.from(document.querySelectorAll('button, input, [tabindex="0"]'))
+      .filter(function (el) {
+        return !el.disabled && el.offsetParent !== null;
+      });
   }
 
   function moveFocus(direction) {
     var focusable = getFocusable();
     if (!focusable.length) return;
-
-    var current = document.activeElement;
-    var idx = focusable.indexOf(current);
-
-    if (direction === 'next') {
-      idx = (idx + 1) % focusable.length;
-    } else {
-      idx = (idx - 1 + focusable.length) % focusable.length;
-    }
-
+    var idx = focusable.indexOf(document.activeElement);
+    idx = direction === 'next'
+      ? (idx + 1) % focusable.length
+      : (idx - 1 + focusable.length) % focusable.length;
     focusable[idx].focus();
-
-    // Scroll focused element into view
     focusable[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
@@ -69,31 +58,53 @@
           e.preventDefault();
           moveFocus('prev');
           break;
-
         case KEY.DOWN:
         case KEY.RIGHT:
           e.preventDefault();
           moveFocus('next');
           break;
-
         case KEY.ENTER:
-          // Fire click on focused element if it isn't an input
           if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault();
             document.activeElement.click();
           }
           break;
-
         case KEY.BACK:
           tizen.application.getCurrentApplication().exit();
           break;
       }
     });
-
-    // Set initial focus on first element
     var focusable = getFocusable();
-    if (focusable.length) {
-      focusable[0].focus();
+    if (focusable.length) focusable[0].focus();
+  }
+
+  // ─── Network status (Samsung Network API) ─────────────────────────────────
+  function initNetwork() {
+    try {
+      var connected = webapis.network.isConnectedToGateway();
+      var type = webapis.network.getActiveConnectionType();
+      // type: 0=disconnected, 1=WiFi, 2=cellular, 3=ethernet
+      var typeNames = { 0: 'Disconnected', 1: 'WiFi', 2: 'Cellular', 3: 'Ethernet' };
+      log('Network: ' + (typeNames[type] || type) + ' | Gateway: ' + connected);
+
+      if (!connected) {
+        statusEl.textContent = 'No network connection!';
+        statusEl.style.color = '#f44';
+      }
+
+      webapis.network.addNetworkStateChangeListener(function (value) {
+        if (value === webapis.network.NetworkState.GATEWAY_DISCONNECTED) {
+          log('Network DISCONNECTED');
+          statusEl.textContent = 'Network disconnected!';
+          statusEl.style.color = '#f44';
+        } else if (value === webapis.network.NetworkState.GATEWAY_CONNECTED) {
+          log('Network CONNECTED');
+          statusEl.textContent = 'App launched successfully.';
+          statusEl.style.color = '';
+        }
+      });
+    } catch (e) {
+      log('Network API unavailable: ' + e.message);
     }
   }
 
@@ -110,14 +121,16 @@
 
     var app = tizen.application.getCurrentApplication();
     versionEl.textContent = 'App ID: ' + app.appInfo.id + ' | Version: ' + app.appInfo.version;
-    platformEl.textContent = 'Tizen platform version: ' +
-      tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version');
+    platformEl.textContent = 'Tizen: ' +
+      tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version') +
+      ' | Web Inspector: chrome://inspect or http://localhost:9998';
 
     registerKeys();
     initNavigation();
+    initNetwork();
 
     document.getElementById('debugBtn').addEventListener('click', function () {
-      log('Manual debug button pressed. If connected, this appears in sdb dlog.');
+      log('Manual debug button pressed.');
     });
 
     document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
@@ -160,11 +173,9 @@
     try {
       var response = await fetch(url);
       var data = await response.json();
-
       if (!response.ok) {
         throw new Error((data && data.error && data.error.message) || ('HTTP ' + response.status));
       }
-
       var items = (data.items || []).map(function (item, idx) {
         return (idx + 1) + '. ' + ((item.snippet && item.snippet.title) || '(no title)');
       });
@@ -200,11 +211,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
       if (!res.ok) throw new Error('HTTP ' + res.status);
       log('Remote log sent to ' + endpoint);
     } catch (error) {
-      log('Remote log failed: ' + error.message);
+      log('Remote log FAILED: ' + error.message + ' | endpoint: ' + endpoint);
     }
   }
 

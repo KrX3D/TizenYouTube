@@ -6,6 +6,7 @@
         viewmodes="maximized">
   <name>TizenYouTube</name>
   <access origin="*" subdomains="true"/>
+  <access origin="http://192.168.50.133" subdomains="false"/>
   <icon src="icon.png"/>
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.all"/>
@@ -21,4 +22,5 @@
                  install-location="auto"
                  hwkey-event="enable"/>
   <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
 </widget>
