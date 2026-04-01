@@ -81,11 +81,44 @@ jobs:
           RELEASE_VERSION: ${{ env.release_version }}
         run: |
           APP_VERSION="${RELEASE_VERSION#v}"
-          python3 -c "import json,xml.etree.ElementTree as ET; from pathlib import Path; app_version='${APP_VERSION}'; config_path=Path('app/config.xml'); tree=ET.parse(config_path); root=tree.getroot(); root.set('version', app_version); tree.write(config_path, encoding='UTF-8', xml_declaration=True); package_json_path=Path('app/package.json'); package_json=json.loads(package_json_path.read_text(encoding='utf-8')); package_json['version']=app_version; package_json_path.write_text(json.dumps(package_json, indent=2) + '\\n', encoding='utf-8'); print(f'Synchronized app/config.xml and app/package.json to version {app_version}')"
+          python3 -c "
+import json, re
+from pathlib import Path
+
+app_version = '${APP_VERSION}'
+
+# config.xml: raw regex replace on the version attribute only.
+# Do NOT use xml.etree.ElementTree — it remaps tizen: prefix to ns1:
+# which breaks tizenjs and TizenBrewInstaller's config.xml parser.
+config_path = Path('app/config.xml')
+content = config_path.read_text(encoding='utf-8')
+content = re.sub(r'(?<=version=\")[^\"]+(?=\")', app_version, content, count=1)
+config_path.write_text(content, encoding='utf-8')
+
+# package.json: safe to use json module
+pkg_path = Path('app/package.json')
+pkg = json.loads(pkg_path.read_text(encoding='utf-8'))
+pkg['version'] = app_version
+pkg_path.write_text(json.dumps(pkg, indent=2) + '\n', encoding='utf-8')
+
+print(f'Synchronized app/config.xml and app/package.json to version {app_version}')
+"
 
       - name: Validate app version consistency
         run: |
-          python3 -c "import json,re,xml.etree.ElementTree as ET; package_version=json.loads(open('app/package.json', 'r', encoding='utf-8').read()).get('version', ''); config_version=ET.parse('app/config.xml').getroot().attrib.get('version', ''); assert re.match(r'^\\d+\\.\\d+\\.\\d+$', config_version), f'Invalid config.xml version format: {config_version}'; assert package_version==config_version, f'Version mismatch: app/package.json={package_version}, app/config.xml={config_version}'; print(f'Version consistency OK: {config_version}')"
+          python3 -c "
+import json, re
+from pathlib import Path
+
+pkg_version = json.loads(Path('app/package.json').read_text(encoding='utf-8')).get('version', '')
+content = Path('app/config.xml').read_text(encoding='utf-8')
+m = re.search(r'version=\"([^\"]+)\"', content)
+config_version = m.group(1) if m else ''
+
+assert re.match(r'^\d+\.\d+\.\d+$', config_version), f'Invalid config.xml version format: {config_version}'
+assert pkg_version == config_version, f'Version mismatch: package.json={pkg_version}, config.xml={config_version}'
+print(f'Version consistency OK: {config_version}')
+"
 
       - name: Install tooling
         run: |
@@ -113,7 +146,15 @@ jobs:
           echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
 
           cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
-          python3 -c "from pathlib import Path; import os; from xml.sax.saxutils import escape; p=Path(os.environ['GITHUB_WORKSPACE'])/'tizen-data/profile/profiles.xml'; t=p.read_text(); t=t.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('$KEY_PW', escape(os.environ['AUTHOR_P12_PASSWORD'], {'\"':'&quot;'})); p.write_text(t)"
+          python3 -c "
+from pathlib import Path
+import os
+from xml.sax.saxutils import escape
+p = Path(os.environ['GITHUB_WORKSPACE']) / 'tizen-data/profile/profiles.xml'
+t = p.read_text()
+t = t.replace('\$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('\$KEY_PW', escape(os.environ['AUTHOR_P12_PASSWORD'], {'\"': '&quot;'}))
+p.write_text(t)
+"
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
