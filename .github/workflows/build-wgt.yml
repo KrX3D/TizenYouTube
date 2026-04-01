@@ -3,9 +3,13 @@ name: Build TizenYouTube WGT
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '.github/**'
     tags:
       - 'v*.*.*'
   pull_request:
+    paths-ignore:
+      - '.github/**'
   workflow_dispatch:
     inputs:
       release_version:

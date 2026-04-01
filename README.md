@@ -41,3 +41,10 @@ Then set repo secrets:
 - Push to `main`: creates next semantic tag (`vX.Y.Z`), builds WGT, and publishes release.
 - Tag push (`v*.*.*`): builds `.wgt`, uploads artifact, and publishes GitHub Release.
 - `workflow_dispatch`: build manually; set `release_version` + `publish_release=true` to publish release.
+
+## Icons
+
+- Runtime icon file is `app/icon.png` (from `config.xml`).
+- Put your source icon at `assets/icons/icon-512.png`.
+- Optional alt: `assets/icons/icon-512_alternative.png`.
+- CI uses `assets/icons/icon-512.png` first, then `.github/assets/icon.png`, otherwise generates a placeholder.

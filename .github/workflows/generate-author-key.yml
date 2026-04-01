@@ -15,9 +15,12 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
+      - name: Mask password input
+        run: |
+          echo "::add-mask::${{ github.event.inputs.cert_password }}"
+          echo "CERT_PASSWORD=${{ github.event.inputs.cert_password }}" >> "$GITHUB_ENV"
+
       - name: Generate author certificate and PKCS#12
-        env:
-          CERT_PASSWORD: ${{ github.event.inputs.cert_password }}
         run: |
           mkdir -p out
           openssl genrsa -out out/author.key 2048
