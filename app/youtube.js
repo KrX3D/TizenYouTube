@@ -17,6 +17,7 @@
   var INJECTION_FILES = [
     'injections/bootstrap.js',
     'injections/fetchInterceptor.js',
+    'injections/jsonTap.js',
     'injections/adblock.js',
     'injections/ui/settings.js',
     'injections/ui/customYTSettings.js'
@@ -88,6 +89,9 @@
       }
 
       Logger.info('youtube', 'Navigating to YouTube TV');
+      Logger.warn('youtube', 'Direct navigation mode active', {
+        note: 'Native YouTube settings menu patching is not available in this mode without a full runtime patch strategy.'
+      });
       Logger.end('youtube', 'launch');
 
       // Navigate — this replaces the app context with youtube.com/tv
