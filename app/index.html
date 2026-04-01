@@ -8,39 +8,27 @@
 </head>
 <body>
 
-  <!-- ── Top status banner (hidden once YT loads) ──── -->
+  <!-- ── Top status banner ─────────────────────────────── -->
   <header class="status-banner" id="statusBanner">
     <span id="statusText">Initializing…</span>
     <span id="versionText"></span>
     <span id="networkText"></span>
-    <button id="gearBtn">⚙</button>
+    <div class="banner-actions">
+      <button id="playlistBtn">≡ Playlist</button>
+      <button id="gearBtn">⚙</button>
+    </div>
   </header>
 
-  <!-- ── YouTube TV webview container ──────────────── -->
-  <div id="youtubeContainer" class="yt-container">
-    <div id="ytLoading" class="yt-loading">
-      <div class="yt-spinner"></div>
-      <p>Loading YouTube TV…</p>
+  <!-- ── Launch screen shown before navigating to YT ───── -->
+  <main class="launch-screen" id="launchScreen">
+    <div class="launch-card">
+      <h1>TizenYouTube</h1>
+      <p id="launchStatus">Ready. Press <strong>▶ Launch YouTube TV</strong> to start.</p>
+      <button id="launchBtn">▶ Launch YouTube TV</button>
     </div>
-    <p id="ytError" class="yt-error" style="display:none"></p>
-  </div>
-
-  <!-- ── Fallback UI (shown before YT loads) ───────── -->
-  <main class="container" id="fallbackUI">
-    <section class="card">
-      <h2>Playlist lookup</h2>
-      <p>API key set in <strong>⚙ Settings</strong>.</p>
-      <label>Playlist ID
-        <div class="input-row">
-          <input id="playlistId" type="text" readonly placeholder="PL… — press Enter to edit" />
-          <button id="fetchBtn">Fetch 5 items</button>
-        </div>
-      </label>
-      <pre id="apiOutput">No request sent yet.</pre>
-    </section>
   </main>
 
-  <!-- ── Settings overlay ──────────────────────────── -->
+  <!-- ── Settings overlay ──────────────────────────────── -->
   <div id="settingsOverlay" class="overlay hidden">
     <div class="settings-panel">
       <h2>⚙ Settings</h2>
@@ -49,7 +37,23 @@
     </div>
   </div>
 
-  <!-- ── Debug console overlay ─────────────────────── -->
+  <!-- ── Playlist overlay ──────────────────────────────── -->
+  <div id="playlistOverlay" class="overlay hidden">
+    <div class="settings-panel">
+      <h2>≡ Playlist lookup</h2>
+      <p style="color:#8888aa;margin:0 0 16px;font-size:17px">API key set in ⚙ Settings.</p>
+      <label style="font-size:19px;color:#b0b0d0">Playlist ID
+        <div class="input-row" style="margin-top:8px">
+          <input id="playlistId" type="text" placeholder="PL… — press Enter to edit" />
+          <button id="fetchBtn">Fetch 5 items</button>
+        </div>
+      </label>
+      <pre id="apiOutput" style="margin-top:14px">No request sent yet.</pre>
+      <button id="playlistCloseBtn" style="margin-top:16px;background:#1e1e38;border-color:#3a3a5a">✗ Close</button>
+    </div>
+  </div>
+
+  <!-- ── Debug console overlay ─────────────────────────── -->
   <div id="debugOverlay" class="overlay debug-overlay hidden">
     <div id="debugPanel" class="debug-panel">
       <div class="debug-header">
@@ -60,7 +64,7 @@
     </div>
   </div>
 
-  <!-- ── Input dialog ──────────────────────────────── -->
+  <!-- ── Input dialog ──────────────────────────────────── -->
   <div id="inputDialog" class="overlay hidden">
     <div class="input-dialog-panel">
       <p id="inputDialogLabel" class="input-dialog-label"></p>
@@ -76,7 +80,6 @@
   <script src="config.js"></script>
   <script src="logger.js"></script>
   <script src="auth.js"></script>
-  <script src="youtube.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

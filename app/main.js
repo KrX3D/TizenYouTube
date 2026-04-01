@@ -3,7 +3,9 @@
   var versionTextEl   = document.getElementById('versionText');
   var networkTextEl   = document.getElementById('networkText');
   var gearBtn         = document.getElementById('gearBtn');
+  var playlistBtn     = document.getElementById('playlistBtn');
   var settingsOverlay = document.getElementById('settingsOverlay');
+  var playlistOverlay = document.getElementById('playlistOverlay');
   var settingsList    = document.getElementById('settingsList');
   var debugOverlay    = document.getElementById('debugOverlay');
   var debugPanel      = document.getElementById('debugPanel');
@@ -27,10 +29,8 @@
       supported.forEach(function (k) {
         if (toRegister.indexOf(k.name) >= 0) {
           tizen.tvinputdevice.registerKey(k.name);
-          // k.code is undefined on Tizen 5.5/6.5 — fall back to k.keyCode
           var code = (k.code !== undefined && k.code !== null)
-            ? parseInt(k.code, 10)
-            : k.keyCode;
+            ? parseInt(k.code, 10) : k.keyCode;
           if (!code || isNaN(code)) return;
           if (k.name === 'ColorF2Yellow') KEY.YELLOW = code;
           if (k.name === 'ColorF0Red')    KEY.RED    = code;
@@ -45,7 +45,6 @@
       Logger.warn('main', 'Key registration failed', { error: e.message });
     }
 
-    // Log any unrecognised key so we can see real codes
     document.addEventListener('keydown', function (e) {
       var known = [KEY.UP, KEY.DOWN, KEY.LEFT, KEY.RIGHT,
                    KEY.ENTER, KEY.BACK, KEY.YELLOW, KEY.RED, KEY.GREEN, KEY.BLUE];
@@ -57,41 +56,22 @@
 
   // ── Readonly inputs ───────────────────────────────────────────────────────
   function initReadonlyInputs() {
-    document.querySelectorAll('main input').forEach(function (input) {
+    document.querySelectorAll('input:not(#inputDialogField)').forEach(function (input) {
       input.setAttribute('readonly', '');
-
       input.addEventListener('keydown', function (e) {
         if (input.hasAttribute('readonly')) {
           if (e.keyCode === KEY.ENTER) {
-            e.stopPropagation();
-            e.preventDefault();
+            e.stopPropagation(); e.preventDefault();
             input.removeAttribute('readonly');
-            input.blur();
-            input.focus();
+            input.blur(); input.focus();
           }
           return;
         }
-        if (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT) {
-          e.stopPropagation();
-          return;
-        }
-        if (e.keyCode === KEY.ENTER) {
-          e.stopPropagation();
-          e.preventDefault();
-          input.setAttribute('readonly', '');
-          input.blur();
-        }
-        if (e.keyCode === KEY.BACK) {
-          e.stopPropagation();
-          e.preventDefault();
-          input.setAttribute('readonly', '');
-          input.blur();
-        }
+        if (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT) { e.stopPropagation(); return; }
+        if (e.keyCode === KEY.ENTER) { e.stopPropagation(); e.preventDefault(); input.setAttribute('readonly',''); input.blur(); }
+        if (e.keyCode === KEY.BACK)  { e.stopPropagation(); e.preventDefault(); input.setAttribute('readonly',''); input.blur(); }
       });
-
-      input.addEventListener('blur', function () {
-        input.setAttribute('readonly', '');
-      });
+      input.addEventListener('blur', function () { input.setAttribute('readonly',''); });
     });
   }
 
@@ -150,24 +130,10 @@
         showToast(t ? (Auth.isValid() ? '✓ Signed in and valid' : '⚠ Token needs refresh') : '✗ Not signed in');
       }},
 
-    { section: 'YouTube TV' },
-    { id: 'action.ytReload',      label: '↺ Reload YouTube TV',   type: 'action',
-      action: function () { closeOverlay(); setTimeout(function () { YouTubeTV.reload(); }, 200); }},
-    { id: 'action.ytDebugInfo',   label: 'YouTube TV debug info', type: 'action',
-      action: function () {
-        Logger.info('youtube', 'WebView status', {
-          ready: YouTubeTV.isReady(),
-          hasWebview: !!YouTubeTV.getWebview()
-        });
-        showToast('See debug console for webview status');
-      }},
-
     { section: 'Diagnostics' },
     { id: 'action.yellowTest',    label: '🟡 Yellow key code',     type: 'action',
       action: function () {
-        Logger.info('settings', 'KEY values', {
-          yellow: KEY.YELLOW, red: KEY.RED, green: KEY.GREEN, blue: KEY.BLUE
-        });
+        Logger.info('settings', 'KEY values', { yellow: KEY.YELLOW, red: KEY.RED, green: KEY.GREEN, blue: KEY.BLUE });
         showToast('KEY.YELLOW = ' + KEY.YELLOW);
       }},
     { id: 'action.testLog',       label: 'Send test log',         type: 'action',
@@ -188,12 +154,7 @@
   function showToast(msg) {
     var t = document.createElement('div');
     t.textContent = msg;
-    t.style.cssText = [
-      'position:fixed;bottom:40px;left:50%;transform:translateX(-50%)',
-      'background:#1e2e50;border:1px solid #3a4a70;border-radius:10px',
-      'padding:14px 28px;font-size:20px;color:#d0d8f0',
-      'z-index:600;pointer-events:none'
-    ].join(';');
+    t.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#1e2e50;border:1px solid #3a4a70;border-radius:10px;padding:14px 28px;font-size:20px;color:#d0d8f0;z-index:600;pointer-events:none';
     document.body.appendChild(t);
     setTimeout(function () { t.style.transition = 'opacity 0.5s'; t.style.opacity = '0'; }, 2200);
     setTimeout(function () { t.remove(); }, 2800);
@@ -213,16 +174,10 @@
       var row = document.createElement('div');
       row.className = 'settings-row';
       row.setAttribute('tabindex','0');
-      var lbl = document.createElement('span');
-      lbl.className = 'settings-label';
-      lbl.textContent = def.label;
-      var val = document.createElement('span');
-      val.className = 'settings-value';
-      refreshValue(val, def);
-      row.appendChild(lbl);
-      row.appendChild(val);
+      var lbl = document.createElement('span'); lbl.className = 'settings-label'; lbl.textContent = def.label;
+      var val = document.createElement('span'); val.className = 'settings-value'; refreshValue(val, def);
+      row.appendChild(lbl); row.appendChild(val);
       settingsList.appendChild(row);
-
       row.addEventListener('keydown', function (e) {
         if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) { e.stopPropagation(); activateSetting(def, val); }
         if (e.keyCode === KEY.LEFT && def.type === 'choice')    { e.stopPropagation(); cycleChoice(def, val, -1); }
@@ -233,19 +188,12 @@
 
   function refreshValue(el, def) {
     if (def.type === 'action') { el.textContent = '▶'; el.style.color = '#f0c040'; return; }
-    if (def.type === 'bool') {
-      var bv = def.get();
-      el.textContent = bv ? '✓ ON' : '✗ OFF';
-      el.style.color  = bv ? '#4fc' : '#f44';
-      return;
-    }
+    if (def.type === 'bool') { var bv = def.get(); el.textContent = bv ? '✓ ON' : '✗ OFF'; el.style.color = bv ? '#4fc' : '#f44'; return; }
     if (def.type === 'choice') { el.textContent = def.get(); el.style.color = '#4fc'; return; }
     var sv = String(def.get() || '');
-    if (def.id.indexOf('Secret') >= 0 || def.id.indexOf('apiKey') >= 0) {
-      sv = sv ? sv.slice(0,4) + '…(' + sv.length + ' chars)' : '';
-    }
+    if (def.id.indexOf('Secret') >= 0 || def.id.indexOf('apiKey') >= 0) { sv = sv ? sv.slice(0,4) + '…(' + sv.length + ')' : ''; }
     el.textContent = sv.length > 32 ? sv.slice(0,29) + '…' : (sv || '(not set)');
-    el.style.color  = sv ? '#4fc' : '#556';
+    el.style.color = sv ? '#4fc' : '#556';
   }
 
   function activateSetting(def, valEl) {
@@ -257,8 +205,8 @@
 
   function cycleChoice(def, valEl, dir) {
     var c = def.choices;
-    var next = (c.indexOf(def.get()) + dir + c.length) % c.length;
-    def.set(c[next]); refreshValue(valEl, def);
+    def.set(c[(c.indexOf(def.get()) + dir + c.length) % c.length]);
+    refreshValue(valEl, def);
   }
 
   var inputDialogOpen = false;
@@ -271,21 +219,14 @@
     dlg.classList.remove('hidden');
     inputDialogOpen = true;
     setTimeout(function () { field.focus(); }, 50);
-
     function close(save) {
-      dlg.classList.add('hidden');
-      field.setAttribute('readonly','');
+      dlg.classList.add('hidden'); field.setAttribute('readonly','');
       inputDialogOpen = false;
       if (save) cb(field.value);
       var rows = settingsList.querySelectorAll('.settings-row');
       if (rows.length) rows[0].focus();
     }
-
-    field.onkeydown = function (e) {
-      e.stopPropagation();
-      if (e.keyCode === 13)       { close(true); }
-      if (e.keyCode === KEY.BACK) { close(false); }
-    };
+    field.onkeydown = function (e) { e.stopPropagation(); if (e.keyCode === 13) close(true); if (e.keyCode === KEY.BACK) close(false); };
     document.getElementById('inputOk').onclick    = function () { close(true); };
     document.getElementById('inputCancel').onclick = function () { close(false); };
   }
@@ -301,11 +242,15 @@
     if (first) first.focus();
   }
 
+  function openPlaylist() {
+    playlistOverlay.classList.remove('hidden');
+    activeOverlay = 'playlist';
+    var input = document.getElementById('playlistId');
+    if (input) input.focus();
+  }
+
   function openDebugConsole() {
-    if (!AppConfig.console.enabled) {
-      showToast('Debug console disabled — enable in Settings');
-      return;
-    }
+    if (!AppConfig.console.enabled) { showToast('Debug console disabled — enable in Settings'); return; }
     applyDebugStyle();
     renderDebugLogs();
     debugOverlay.classList.remove('hidden');
@@ -317,9 +262,9 @@
 
   function closeOverlay() {
     settingsOverlay.classList.add('hidden');
+    playlistOverlay.classList.add('hidden');
     debugOverlay.classList.add('hidden');
     activeOverlay = null;
-    // Delay to avoid keyup firing on newly-focused element (prevents re-open bug)
     setTimeout(function () {
       var f = getMainFocusable();
       if (f.length) f[0].focus();
@@ -328,12 +273,10 @@
 
   function applyDebugStyle() {
     var c = AppConfig.console, p = debugPanel;
-    p.style.width   = c.width  + 'px';
-    p.style.height  = c.height + 'px';
-    p.style.opacity = String(c.opacity);
+    p.style.width = c.width + 'px'; p.style.height = c.height + 'px'; p.style.opacity = String(c.opacity);
     p.style.top = p.style.bottom = p.style.left = p.style.right = 'auto';
-    if (c.position.indexOf('top')    >= 0) p.style.top    = '60px'; else p.style.bottom = '20px';
-    if (c.position.indexOf('left')   >= 0) p.style.left   = '20px'; else p.style.right  = '20px';
+    if (c.position.indexOf('top')  >= 0) p.style.top    = '60px'; else p.style.bottom = '20px';
+    if (c.position.indexOf('left') >= 0) p.style.left   = '20px'; else p.style.right  = '20px';
   }
 
   function renderDebugLogs() {
@@ -343,51 +286,41 @@
     var lastCtx = null;
     entries.forEach(function (e) {
       if (e.context !== lastCtx) {
-        var sep = document.createElement('div');
-        sep.className = 'dl-separator';
+        var sep = document.createElement('div'); sep.className = 'dl-separator';
         sep.textContent = '── ' + e.context.toUpperCase() + ' ──';
-        debugLogs.appendChild(sep);
-        lastCtx = e.context;
+        debugLogs.appendChild(sep); lastCtx = e.context;
       }
-      var row = document.createElement('div');
-      row.className = 'dl-row';
-      row.innerHTML =
-        '<span class="dl-ts">'  + esc(e.ts.slice(11,23)) + '</span>' +
+      var row = document.createElement('div'); row.className = 'dl-row';
+      row.innerHTML = '<span class="dl-ts">' + esc(e.ts.slice(11,23)) + '</span>' +
         '<span class="dl-lvl" style="color:' + (COLORS[e.level]||'#fff') + '">' + esc(e.level.padEnd(5)) + '</span>' +
         '<span class="dl-msg">' + esc(e.message) + '</span>';
-      if (e.data) {
-        var d = document.createElement('div');
-        d.className = 'dl-data';
-        try { d.textContent = JSON.stringify(e.data); } catch(x) {}
-        row.appendChild(d);
-      }
+      if (e.data) { var d = document.createElement('div'); d.className = 'dl-data'; try { d.textContent = JSON.stringify(e.data); } catch(x) {} row.appendChild(d); }
       debugLogs.appendChild(row);
     });
     debugLogs.scrollTop = 0;
   }
 
-  function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   // ── Navigation ────────────────────────────────────────────────────────────
   function getMainFocusable() {
     return Array.from(document.querySelectorAll('button, input, [tabindex="0"]'))
-      .filter(function (el) {
-        return !el.closest('.overlay') && el.offsetParent !== null;
-      });
+      .filter(function (el) { return !el.closest('.overlay') && el.offsetParent !== null; });
   }
 
   function getOverlayFocusable() {
-    if (activeOverlay !== 'settings') return [];
-    return Array.from(settingsOverlay.querySelectorAll('.settings-row, button'))
+    var scope = activeOverlay === 'settings' ? settingsOverlay
+              : activeOverlay === 'playlist' ? playlistOverlay : null;
+    if (!scope) return [];
+    return Array.from(scope.querySelectorAll('.settings-row, button, input'))
       .filter(function (el) { return el.offsetParent !== null; });
   }
 
   function moveFocus(dir) {
     var active = document.activeElement;
     if (active && active.tagName === 'INPUT' && !active.hasAttribute('readonly')) return;
-    var list = activeOverlay === 'settings' ? getOverlayFocusable() : getMainFocusable();
+    var list = (activeOverlay === 'settings' || activeOverlay === 'playlist')
+      ? getOverlayFocusable() : getMainFocusable();
     if (!list.length) return;
     var idx = list.indexOf(active);
     idx = dir === 'next' ? (idx+1) % list.length : (idx-1+list.length) % list.length;
@@ -398,44 +331,32 @@
   document.addEventListener('keydown', function (e) {
     if (inputDialogOpen) return;
 
-    // Yellow — toggle debug console from anywhere
     if (e.keyCode === KEY.YELLOW) {
       e.preventDefault();
-      if (activeOverlay === 'debug') {
-        closeOverlay();
-      } else {
-        settingsOverlay.classList.add('hidden');
-        activeOverlay = null;
-        openDebugConsole();
-      }
+      if (activeOverlay === 'debug') closeOverlay();
+      else { settingsOverlay.classList.add('hidden'); playlistOverlay.classList.add('hidden'); activeOverlay = null; openDebugConsole(); }
       return;
     }
 
-    // Back — close overlay or go back in webview or exit
     if (e.keyCode === KEY.BACK) {
       e.preventDefault();
       if (activeOverlay) { closeOverlay(); return; }
-      if (YouTubeTV && YouTubeTV.isReady()) { YouTubeTV.goBack(); return; }
       tizen.application.getCurrentApplication().exit();
       return;
     }
 
-    // Debug console scroll only
     if (activeOverlay === 'debug') {
       if (e.keyCode === KEY.UP)   { e.preventDefault(); debugLogs.scrollTop -= 80; }
       if (e.keyCode === KEY.DOWN) { e.preventDefault(); debugLogs.scrollTop += 80; }
       return;
     }
 
-    // Don't intercept when editing an input
     var active = document.activeElement;
     if (active && active.tagName === 'INPUT' && !active.hasAttribute('readonly')) return;
 
     if (e.keyCode === KEY.UP   || e.keyCode === KEY.LEFT)  { e.preventDefault(); moveFocus('prev'); }
     if (e.keyCode === KEY.DOWN || e.keyCode === KEY.RIGHT) { e.preventDefault(); moveFocus('next'); }
-    if (e.keyCode === KEY.ENTER) {
-      if (active && active.tagName !== 'INPUT') { e.preventDefault(); active.click(); }
-    }
+    if (e.keyCode === KEY.ENTER) { if (active && active.tagName !== 'INPUT') { e.preventDefault(); active.click(); } }
   });
 
   // ── Network ───────────────────────────────────────────────────────────────
@@ -444,8 +365,7 @@
     if (typeof webapis === 'undefined' || !webapis.network) {
       Logger.warn('network','webapis.network unavailable');
       networkTextEl.textContent = 'Net API N/A';
-      Logger.end('network','initNetwork');
-      return;
+      Logger.end('network','initNetwork'); return;
     }
     try {
       var connected = webapis.network.isConnectedToGateway();
@@ -457,44 +377,32 @@
       if (!connected) { statusTextEl.textContent = 'No network!'; statusTextEl.style.color = '#f44'; }
       webapis.network.addNetworkStateChangeListener(function (v) {
         var ns = webapis.network.NetworkState;
-        if (v === ns.GATEWAY_DISCONNECTED) {
-          Logger.warn('network','Disconnected');
-          statusTextEl.textContent = 'Network lost!'; statusTextEl.style.color = '#f44';
-        } else if (v === ns.GATEWAY_CONNECTED) {
-          Logger.info('network','Connected');
-          statusTextEl.style.color = '';
-          initNetwork();
-        }
+        if (v === ns.GATEWAY_DISCONNECTED) { Logger.warn('network','Disconnected'); statusTextEl.textContent = 'Network lost!'; statusTextEl.style.color = '#f44'; }
+        else if (v === ns.GATEWAY_CONNECTED) { Logger.info('network','Connected'); statusTextEl.style.color = ''; initNetwork(); }
       });
-    } catch (e) {
-      Logger.error('network','Error',{ error:e.message });
-    }
+    } catch (e) { Logger.error('network','Error',{ error:e.message }); }
     Logger.end('network','initNetwork');
   }
 
-  // ── YouTube playlist fallback ─────────────────────────────────────────────
+  // ── YouTube playlist ──────────────────────────────────────────────────────
   async function fetchPlaylistItems() {
     Logger.begin('youtube','fetchPlaylistItems');
     var apiKey     = AppConfig.youtube.apiKey;
-    var playlistId = document.getElementById('playlistId') &&
-                     document.getElementById('playlistId').value.trim();
-    if (!apiKey)     { if (apiOutputEl) apiOutputEl.textContent = 'No API key — set in ⚙ Settings.'; Logger.warn('youtube','No API key'); Logger.end('youtube','fetchPlaylistItems'); return; }
-    if (!playlistId) { if (apiOutputEl) apiOutputEl.textContent = 'Enter a playlist ID first.'; Logger.warn('youtube','No playlist ID'); Logger.end('youtube','fetchPlaylistItems'); return; }
-
-    var url = 'https://www.googleapis.com/youtube/v3/playlistItems?' +
-      new URLSearchParams({ part:'snippet', playlistId:playlistId, maxResults:'5', key:apiKey });
+    var playlistId = document.getElementById('playlistId').value.trim();
+    if (!apiKey)     { apiOutputEl.textContent = 'No API key — set in ⚙ Settings.'; Logger.warn('youtube','No API key'); Logger.end('youtube','fetchPlaylistItems'); return; }
+    if (!playlistId) { apiOutputEl.textContent = 'Enter a playlist ID first.'; Logger.warn('youtube','No playlist ID'); Logger.end('youtube','fetchPlaylistItems'); return; }
     Logger.info('youtube','Fetching',{ playlistId:playlistId });
     try {
+      var url = 'https://www.googleapis.com/youtube/v3/playlistItems?' +
+        new URLSearchParams({ part:'snippet', playlistId:playlistId, maxResults:'5', key:apiKey });
       var res  = await fetch(url);
       var data = await res.json();
       if (!res.ok) throw new Error((data.error && data.error.message) || 'HTTP '+res.status);
-      var items = (data.items||[]).map(function (it,i) {
-        return (i+1)+'. '+((it.snippet&&it.snippet.title)||'(no title)');
-      });
-      if (apiOutputEl) apiOutputEl.textContent = items.length ? 'Fetched '+items.length+' items:\n'+items.join('\n') : 'No items.';
+      var items = (data.items||[]).map(function (it,i) { return (i+1)+'. '+((it.snippet&&it.snippet.title)||'(no title)'); });
+      apiOutputEl.textContent = items.length ? 'Fetched '+items.length+' items:\n'+items.join('\n') : 'No items.';
       Logger.info('youtube','Done',{ count:items.length });
     } catch (err) {
-      if (apiOutputEl) apiOutputEl.textContent = 'Error: '+err.message;
+      apiOutputEl.textContent = 'Error: '+err.message;
       Logger.error('youtube','Failed',{ error:err.message });
     }
     Logger.end('youtube','fetchPlaylistItems');
@@ -504,14 +412,10 @@
   function init() {
     Logger.begin('main','init');
     statusTextEl.textContent = 'Running';
-
     var app = tizen.application.getCurrentApplication();
     versionTextEl.textContent = 'v' + app.appInfo.version;
-    Logger.info('main','Started',{
-      id:       app.appInfo.id,
-      version:  app.appInfo.version,
-      platform: tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version')
-    });
+    Logger.info('main','Started',{ id:app.appInfo.id, version:app.appInfo.version,
+      platform: tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version') });
 
     registerKeys();
     initReadonlyInputs();
@@ -520,26 +424,23 @@
     Logger.onLog(function () { if (activeOverlay === 'debug') renderDebugLogs(); });
 
     gearBtn.addEventListener('click', openSettings);
+    playlistBtn.addEventListener('click', openPlaylist);
 
-    var fetchBtn = document.getElementById('fetchBtn');
-    if (fetchBtn) fetchBtn.addEventListener('click', fetchPlaylistItems);
+    document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
+    document.getElementById('playlistCloseBtn').addEventListener('click', closeOverlay);
 
-    // Start YouTube TV webview
-    YouTubeTV.init();
-
-    // Hide fallback UI and banner once YouTube TV page loads
-    setTimeout(function () {
-      var wv = YouTubeTV.getWebview();
-      if (wv) {
-        wv.addEventListener('loadstop', function () {
-          var fallback = document.getElementById('fallbackUI');
-          var banner   = document.getElementById('statusBanner');
-          if (fallback) fallback.classList.add('hidden');
-          if (banner)   banner.classList.add('hidden');
-          Logger.info('main','YouTube TV loaded — UI hidden');
-        });
-      }
-    }, 100);
+    var launchBtn = document.getElementById('launchBtn');
+    if (launchBtn) {
+      launchBtn.addEventListener('click', function () {
+        Logger.info('main','Launching YouTube TV');
+        // Store injection scripts then navigate
+        if (window.YouTubeTV) {
+          window.YouTubeTV.launch();
+        } else {
+          window.location.href = 'https://www.youtube.com/tv';
+        }
+      });
+    }
 
     var f = getMainFocusable();
     if (f.length) f[0].focus();

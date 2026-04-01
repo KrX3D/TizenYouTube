@@ -255,3 +255,43 @@ input:focus    { border-color: #f0c040; background: #1c1c2e; }
 }
 .input-dialog-label { margin: 0 0 14px; color: #9090c8; font-size: 20px; }
 .input-dialog-btns { display: flex; gap: 12px; margin-top: 16px; }
+
+/* ── Launch screen ─────────────────────────────────────── */
+.launch-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  background: #1a1a24;
+}
+.launch-card {
+  text-align: center;
+  padding: 48px 60px;
+  background: #1e1e2e;
+  border: 1px solid #2e2e44;
+  border-radius: 16px;
+  max-width: 700px;
+}
+.launch-card h1 { margin: 0 0 16px; font-size: 42px; color: #fff; }
+.launch-card p  { color: #8888aa; font-size: 20px; margin: 0 0 28px; }
+#launchBtn { font-size: 24px; padding: 14px 36px; }
+
+/* ── Banner actions ────────────────────────────────────── */
+.banner-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.banner-actions button {
+  margin-top: 0;
+  background: #22223a;
+  border: 1px solid #3a3a58;
+  border-radius: 8px;
+  color: #c0c0e0;
+  font-size: 17px;
+  padding: 5px 14px;
+}
+.banner-actions button:focus { border-color: #f0c040; background: #28283c; outline: 3px solid #f0c040; }
