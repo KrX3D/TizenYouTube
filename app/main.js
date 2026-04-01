@@ -27,6 +27,9 @@
       var supported = tizen.tvinputdevice.getSupportedKeys();
       var toRegister = ['ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue',
                         'MediaPlayPause','MediaPlay','MediaPause','MediaStop'];
+      toRegister.forEach(function (name) {
+        try { tizen.tvinputdevice.registerKey(name); } catch (_) {}
+      });
       supported.forEach(function (k) {
         if (toRegister.indexOf(k.name) >= 0) {
           tizen.tvinputdevice.registerKey(k.name);
@@ -186,6 +189,10 @@
       if (compareSemver(latestTag, current) > 0) {
         showToast('Update available: v' + latestTag + ' (current v' + current + ')');
         Logger.info('update', 'Update available', { latest: latestTag, current: current, url: data.html_url });
+        try {
+          var ctrl = new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/view', data.html_url);
+          tizen.application.launchAppControl(ctrl, null, function () {}, function () {});
+        } catch (_) {}
       } else {
         showToast('Already on latest version: v' + current);
         Logger.info('update', 'Already latest', { latest: latestTag, current: current });
@@ -217,6 +224,7 @@
       row.addEventListener('keydown', function (e) {
         if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) { e.stopPropagation(); activateSetting(def, val); }
         if (e.keyCode === KEY.LEFT && def.type === 'choice')    { e.stopPropagation(); cycleChoice(def, val, -1); }
+        if (e.keyCode === KEY.LEFT && def.type === 'number')    { e.stopPropagation(); stepNumber(def, val, -1); }
       });
       row.addEventListener('click', function () { activateSetting(def, val); });
     });
@@ -235,6 +243,7 @@
   function activateSetting(def, valEl) {
     if (def.type === 'bool')        { def.set(!def.get()); refreshValue(valEl, def); }
     else if (def.type === 'choice') { cycleChoice(def, valEl, 1); }
+    else if (def.type === 'number') { stepNumber(def, valEl, 1); }
     else if (def.type === 'action') { def.action(); }
     else { showInputDialog(def.label, String(def.get() || ''), function (v) { def.set(v); refreshValue(valEl, def); }); }
   }
@@ -242,6 +251,16 @@
   function cycleChoice(def, valEl, dir) {
     var c = def.choices;
     def.set(c[(c.indexOf(def.get()) + dir + c.length) % c.length]);
+    refreshValue(valEl, def);
+  }
+
+  function stepNumber(def, valEl, dir) {
+    var cur = parseInt(def.get(), 10);
+    if (isNaN(cur)) cur = 0;
+    var step = (def.id && def.id.indexOf('port') >= 0) ? 1 : 20;
+    var next = cur + (dir * step);
+    if (next < 0) next = 0;
+    def.set(String(next));
     refreshValue(valEl, def);
   }
 
@@ -301,8 +320,8 @@
   function openPlaylist() {
     playlistOverlay.classList.remove('hidden');
     activeOverlay = 'playlist';
-    var input = document.getElementById('playlistId');
-    if (input) input.focus();
+    var first = document.getElementById('fetchBtn') || document.getElementById('playlistId');
+    if (first) first.focus();
   }
 
   function openDebugConsole() {
@@ -395,6 +414,15 @@
 
   document.addEventListener('keydown', function (e) {
     if (inputDialogOpen) return;
+
+    if (!activeOverlay && e.keyCode === KEY.DOWN &&
+      (document.activeElement === playlistBtn || document.activeElement === gearBtn || document.activeElement === debugBtn)) {
+      var launch = document.getElementById('launchBtn');
+      if (launch) { e.preventDefault(); launch.focus(); return; }
+    }
+    if (!activeOverlay && e.keyCode === KEY.UP && document.activeElement && document.activeElement.id === 'launchBtn') {
+      if (playlistBtn) { e.preventDefault(); playlistBtn.focus(); return; }
+    }
 
     var isYellow = (e.keyCode === KEY.YELLOW || e.keyCode === 405 || e.key === 'ColorF2Yellow');
     var isDebugFallback = (e.keyCode === KEY.RED || e.keyCode === 403 || e.key === 'ColorF0Red' ||

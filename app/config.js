@@ -42,11 +42,18 @@
   }
 
   function load() {
+    var cfg;
     try {
       var stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return deepMerge(defaults, JSON.parse(stored));
-    } catch (e) {}
-    return deepMerge(defaults, {});
+      cfg = stored ? deepMerge(defaults, JSON.parse(stored)) : deepMerge(defaults, {});
+    } catch (e) {
+      cfg = deepMerge(defaults, {});
+    }
+    if (cfg.runtimePatch && cfg.runtimePatch.enabled && !cfg.runtimePatch.serviceAppId) {
+      cfg.runtimePatch.enabled = false;
+      cfg.runtimePatch.fallbackToDirectNavigation = false;
+    }
+    return cfg;
   }
 
   window.AppConfig = load();

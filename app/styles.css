@@ -313,5 +313,6 @@ input:focus:not(:focus-visible),
 .banner-actions button:focus { border-color: #f0c040; background: #2f3150; outline: none; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
 
 #playlistOverlay .input-row input { max-width: none; }
+#playlistOverlay .input-row { gap: 18px; }
 #playlistOverlay #fetchBtn,
 #playlistOverlay #playlistCloseBtn { border-radius: 10px; }
