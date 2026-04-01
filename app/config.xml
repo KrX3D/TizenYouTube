@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://krx3d.com/tizenyoutube"
-        version="0.1.41"
+        version="0.1.35"
         viewmodes="maximized">
   <name>TizenYouTube</name>
   <access origin="*" subdomains="true"></access>
@@ -10,10 +10,10 @@
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.all"/>
 
-  <tizen:application id="krx3dYtV01.TizenYouTube"
-                     package="krx3dYtV01"
+  <tizen:application id="krx3dYtV02.TizenYouTube"
+                     package="krx3dYtV02"
                      required_version="3.0"/>
-  <tizen:service id="krx3dYtV01.RuntimePatchService" auto-restart="false" on-boot="false">
+  <tizen:service id="krx3dYtV02.RuntimePatchService" auto-restart="false" on-boot="false">
     <tizen:content src="service/runtimePatchService.js"/>
     <tizen:name>RuntimePatchService</tizen:name>
     <tizen:description>Runtime patch handoff scaffold service</tizen:description>

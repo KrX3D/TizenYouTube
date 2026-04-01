@@ -23,7 +23,7 @@
     },
     runtimePatch: {
       enabled: true,
-      serviceAppId: 'krx3dYtV01.RuntimePatchService',
+      serviceAppId: 'krx3dYtV02.RuntimePatchService',
       fallbackToDirectNavigation: true
     }
   };
