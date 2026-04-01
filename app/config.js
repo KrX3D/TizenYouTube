@@ -22,8 +22,8 @@
       clientSecret: ''
     },
     runtimePatch: {
-      enabled: true,
-      serviceAppId: 'krx3dYtV02.RuntimePatchService',
+      enabled: false,
+      serviceAppId: '',
       fallbackToDirectNavigation: true
     }
   };
