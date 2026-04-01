@@ -75,37 +75,6 @@ jobs:
           echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
           echo "publish_release=${{ github.event.inputs.publish_release }}" >> "$GITHUB_ENV"
 
-      - name: Sync app version from release tag
-        if: env.release_version != ''
-        run: |
-          APP_VERSION="${{ env.release_version }}"
-          APP_VERSION="${APP_VERSION#v}"
-
-          # Target only the <widget ...> line, not the <?xml version="1.0"?> declaration
-          sed -i '/<widget/s/version="[^"]*"/version="'"${APP_VERSION}"'"/' app/config.xml
-
-          node -e "
-            const fs = require('fs');
-            const p = 'app/package.json';
-            const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
-            pkg.version = '${APP_VERSION}';
-            fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');
-            console.log('package.json version set to ${APP_VERSION}');
-          "
-          echo "Synchronized app/config.xml and app/package.json to version ${APP_VERSION}"
-
-      - name: Validate app version consistency
-        run: |
-          CONFIG_VER=$(grep -oP '^\s*version="\K[^"]+' app/config.xml)
-          PKG_VER=$(node -e "process.stdout.write(require('./app/package.json').version)")
-
-          echo "config.xml version : ${CONFIG_VER}"
-          echo "package.json version: ${PKG_VER}"
-
-          [[ "$CONFIG_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid config.xml version format: ${CONFIG_VER}"; exit 1; }
-          [ "$CONFIG_VER" = "$PKG_VER" ] || { echo "Version mismatch: config.xml=${CONFIG_VER} package.json=${PKG_VER}"; exit 1; }
-          echo "Version consistency OK: ${CONFIG_VER}"
-
       - name: Install tooling
         run: |
           sudo apt-get update
