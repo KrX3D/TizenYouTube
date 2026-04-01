@@ -1,7 +1,7 @@
 # TizenYouTube (Starter)
 
 Minimal Samsung Tizen TV web app starter for Tizen 5.5+.
- 
+
 ## Quick debug notes
 
 - `26101` is for **SDB** between PC and TV.
@@ -34,7 +34,7 @@ You can generate a reusable author key with this manual workflow:
 
 Then set repo secrets:
 - `TIZEN_AUTHOR_KEY_B64` = contents of `TIZEN_AUTHOR_KEY_B64.txt`
-- `TIZEN_AUTHOR_KEY_PW` = password you entered in the workflow
+- `TIZEN_AUTHOR_KEY_PW` = contents of `TIZEN_AUTHOR_KEY_PW.txt` from artifact
 
 ## Release behavior
 

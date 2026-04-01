@@ -101,15 +101,7 @@ jobs:
           echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
 
           cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
-          python - <<'PY_REPL'
-from pathlib import Path
-import os
-path = Path(os.environ['GITHUB_WORKSPACE']) / 'tizen-data/profile/profiles.xml'
-text = path.read_text()
-text = text.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE'])
-text = text.replace('$KEY_PW', os.environ['AUTHOR_P12_PASSWORD'])
-path.write_text(text)
-PY_REPL
+          python -c "from pathlib import Path; import os; p=Path(os.environ['GITHUB_WORKSPACE'])/'tizen-data/profile/profiles.xml'; t=p.read_text(); t=t.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('$KEY_PW', os.environ['AUTHOR_P12_PASSWORD']); p.write_text(t)"
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
