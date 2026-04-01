@@ -1,0 +1,156 @@
+name: Build TizenYouTube WGT
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/**'
+      - 'README.md'
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    paths-ignore:
+      - '.github/**'
+      - 'README.md'
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version/tag name (e.g. v0.1.0)'
+        required: false
+      publish_release:
+        description: 'Publish a GitHub Release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  TIZEN_STUDIO_VER: 5.6
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Create next tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          if [ -z "$LAST_TAG" ]; then
+            RELEASE_VERSION="v0.1.0"
+          else
+            MAJOR=$(echo "$LAST_TAG" | sed 's/^v//' | cut -d. -f1)
+            MINOR=$(echo "$LAST_TAG" | sed 's/^v//' | cut -d. -f2)
+            PATCH=$(echo "$LAST_TAG" | sed 's/^v//' | cut -d. -f3)
+            RELEASE_VERSION="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+
+          git tag "${RELEASE_VERSION}"
+          git push origin "${RELEASE_VERSION}"
+
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "publish_release=true" >> "$GITHUB_ENV"
+
+      - name: Set version from tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          RELEASE_VERSION="${GITHUB_REF#refs/tags/}"
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "publish_release=true" >> "$GITHUB_ENV"
+
+      - name: Set version from manual input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ -n "${{ github.event.inputs.release_version }}" ]; then
+            RELEASE_VERSION="${{ github.event.inputs.release_version }}"
+          else
+            RELEASE_VERSION=""
+          fi
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "publish_release=${{ github.event.inputs.publish_release }}" >> "$GITHUB_ENV"
+
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y expect zip unzip
+
+      - name: Download Tizen Studio CLI
+        run: |
+          curl -fL -o tizen-installer \
+            "https://download.tizen.org/sdk/Installer/tizen-studio_${TIZEN_STUDIO_VER}/web-cli_Tizen_Studio_${TIZEN_STUDIO_VER}_ubuntu-64.bin"
+          chmod +x tizen-installer
+
+      - name: Install Tizen Studio CLI
+        run: |
+          ./tizen-installer --accept-license "${GITHUB_WORKSPACE}/tizen-studio"
+          echo "${GITHUB_WORKSPACE}/tizen-studio/tools/ide/bin" >> $GITHUB_PATH
+
+      - name: Configure certificate profile
+        env:
+          AUTHOR_P12_B64: ${{ secrets.TIZEN_AUTHOR_KEY_B64 }}
+          AUTHOR_P12_PASSWORD: ${{ secrets.TIZEN_AUTHOR_KEY_PW }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/tizen-data/keystore/author"
+          mkdir -p "${GITHUB_WORKSPACE}/tizen-data/profile"
+          echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
+
+          cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
+          python -c "from pathlib import Path; import os; p=Path(os.environ['GITHUB_WORKSPACE'])/'tizen-data/profile/profiles.xml'; t=p.read_text(); t=t.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('$KEY_PW', os.environ['AUTHOR_P12_PASSWORD']); p.write_text(t)"
+
+          tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
+
+      - name: Prepare app icon
+        run: |
+          if [ -f assets/icons/icon-512.png ]; then
+            cp assets/icons/icon-512.png app/icon.png
+            echo "Using assets/icons/icon-512.png"
+          elif [ -f .github/assets/icon.png ]; then
+            cp .github/assets/icon.png app/icon.png
+            echo "Using .github/assets/icon.png"
+          else
+            echo 'iVBORw0KGgoAAAANSUhEUgAAAHEAAABxCAYAAADVEh4BAAAAOklEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4NcBNKQAAfI5N0wAAAAASUVORK5CYII=' | base64 -d > app/icon.png
+            echo "No source icon found, generated placeholder app/icon.png"
+          fi
+
+      - name: Build web app
+        working-directory: app
+        run: tizen build-web -e ".gitignore" -e "README.md"
+
+      - name: Package WGT
+        working-directory: app
+        run: |
+          tizen package -t wgt -s TizenYouTube -- ./
+          mkdir -p ../dist
+          cp *.wgt ../dist/TizenYouTube.wgt
+
+      - name: Show Tizen CLI log on failure
+        if: failure()
+        run: |
+          LOG_PATH="${GITHUB_WORKSPACE}/tizen-studio-data/cli/logs/cli.log"
+          if [ -f "$LOG_PATH" ]; then
+            echo "--- tizen cli.log ---"
+            cat "$LOG_PATH"
+          else
+            echo "No cli.log found at $LOG_PATH"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: tizen-youtube-wgt
+          path: dist/TizenYouTube.wgt
+
+      - name: Publish GitHub Release
+        if: env.publish_release == 'true' && env.release_version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.release_version }}
+          name: TizenYouTube ${{ env.release_version }}
+          files: dist/TizenYouTube.wgt
+          generate_release_notes: true

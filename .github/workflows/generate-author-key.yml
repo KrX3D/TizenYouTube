@@ -1,0 +1,48 @@
+name: Generate Tizen Author Key
+
+on:
+  workflow_dispatch:
+    inputs:
+      common_name:
+        description: 'Certificate common name'
+        required: false
+        default: 'TizenYouTube Author'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate random password (not printed)
+        run: |
+          mkdir -p out
+          PW=$(openssl rand -base64 24 | tr -d '\n')
+          echo "CERT_PASSWORD=$PW" >> "$GITHUB_ENV"
+          printf '%s' "$PW" > out/TIZEN_AUTHOR_KEY_PW.txt
+
+      - name: Generate author certificate and PKCS#12
+        run: |
+          openssl genrsa -out out/author.key 2048
+          openssl req -new -x509 -key out/author.key -out out/author.crt -days 3650 \
+            -subj "/CN=${{ github.event.inputs.common_name }}"
+          openssl pkcs12 -export \
+            -inkey out/author.key \
+            -in out/author.crt \
+            -name "tizen-author" \
+            -out out/author.p12 \
+            -passout env:CERT_PASSWORD
+
+      - name: Create base64 for GitHub secret
+        run: |
+          base64 -w 0 out/author.p12 > out/TIZEN_AUTHOR_KEY_B64.txt
+
+      - name: Upload generated key artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: tizen-author-key
+          path: out/
+
+      - name: Secret setup instructions
+        run: |
+          echo "1) Download artifact: tizen-author-key"
+          echo "2) Set repository secret TIZEN_AUTHOR_KEY_B64 from out/TIZEN_AUTHOR_KEY_B64.txt"
+          echo "3) Set repository secret TIZEN_AUTHOR_KEY_PW from out/TIZEN_AUTHOR_KEY_PW.txt"
