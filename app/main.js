@@ -12,44 +12,84 @@
 
   var activeOverlay   = null;
 
+  // Samsung TV remote key codes — Yellow can be 405 OR 'ColorF2Yellow' name
   var KEY = {
     UP: 38, DOWN: 40, LEFT: 37, RIGHT: 39,
     ENTER: 13, BACK: 10009,
     YELLOW: 405, RED: 403, GREEN: 404, BLUE: 406
   };
 
-  // ── Readonly inputs: keyboard only opens on Enter ─────────────────────────
-  // All inputs in the main UI have readonly by default.
-  // Pressing Enter removes readonly → TV opens keyboard.
-  // On blur, readonly is restored.
-  function initReadonlyInputs() {
-    document.querySelectorAll('main input[readonly]').forEach(function (input) {
-      input.addEventListener('keydown', function (e) {
-        if (e.keyCode === KEY.ENTER) {
-          e.stopPropagation();
-          input.removeAttribute('readonly');
-          input.focus();
-        }
-      });
-      input.addEventListener('blur', function () {
-        input.setAttribute('readonly', '');
-      });
-    });
-  }
-
   // ── Register remote keys ──────────────────────────────────────────────────
   function registerKeys() {
     try {
       var supported = tizen.tvinputdevice.getSupportedKeys();
-      ['ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue',
-       'MediaPlayPause','MediaPlay','MediaPause','MediaStop'].forEach(function (name) {
-        if (supported.some(function (k) { return k.name === name; })) {
-          tizen.tvinputdevice.registerKey(name);
+      var toRegister = ['ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue',
+                        'MediaPlayPause','MediaPlay','MediaPause','MediaStop'];
+      supported.forEach(function (k) {
+        if (toRegister.indexOf(k.name) >= 0) {
+          tizen.tvinputdevice.registerKey(k.name);
+          // Update KEY map from actual key code reported by the TV
+          if (k.name === 'ColorF2Yellow') KEY.YELLOW = k.code;
+          if (k.name === 'ColorF0Red')    KEY.RED    = k.code;
+          if (k.name === 'ColorF1Green')  KEY.GREEN  = k.code;
+          if (k.name === 'ColorF3Blue')   KEY.BLUE   = k.code;
         }
       });
+      Logger.info('main', 'Keys registered', { yellow: KEY.YELLOW });
     } catch (e) {
       Logger.warn('main', 'Key registration failed', { error: e.message });
     }
+  }
+
+  // ── Readonly inputs: keyboard only opens on Enter ─────────────────────────
+  function initReadonlyInputs() {
+    document.querySelectorAll('main input').forEach(function (input) {
+      // Make readonly by default so arrow keys don't open keyboard
+      input.setAttribute('readonly', '');
+
+      input.addEventListener('keydown', function (e) {
+        // When readonly, Enter opens the keyboard
+        if (input.hasAttribute('readonly')) {
+          if (e.keyCode === KEY.ENTER) {
+            e.stopPropagation();
+            e.preventDefault();
+            input.removeAttribute('readonly');
+            // Re-focus to trigger keyboard
+            input.blur();
+            input.focus();
+          }
+          // While readonly, let arrow keys pass through to navigation
+          return;
+        }
+
+        // When editing (keyboard open):
+        // Left/Right move cursor inside field — do NOT propagate to nav handler
+        if (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT) {
+          e.stopPropagation(); // prevent moveFocus()
+          return; // let browser handle cursor
+        }
+
+        // Enter confirms and closes keyboard
+        if (e.keyCode === KEY.ENTER) {
+          e.stopPropagation();
+          e.preventDefault();
+          input.setAttribute('readonly', '');
+          input.blur();
+        }
+
+        // Back cancels editing
+        if (e.keyCode === KEY.BACK) {
+          e.stopPropagation();
+          e.preventDefault();
+          input.setAttribute('readonly', '');
+          input.blur();
+        }
+      });
+
+      input.addEventListener('blur', function () {
+        input.setAttribute('readonly', '');
+      });
+    });
   }
 
   // ── Settings definition ───────────────────────────────────────────────────
@@ -84,85 +124,37 @@
       set: function (v) { AppConfig.console.height = parseInt(v,10) || 500; } },
 
     { section: 'YouTube' },
-    { id: 'youtube.apiKey',      label: 'Data API key',           type: 'string',
+    { id: 'youtube.apiKey',       label: 'Data API key',          type: 'string',
       get: function () { return AppConfig.youtube.apiKey; },
       set: function (v) { AppConfig.youtube.apiKey = v; } },
-    { id: 'youtube.clientId',    label: 'OAuth Client ID',        type: 'string',
+    { id: 'youtube.clientId',     label: 'OAuth Client ID',       type: 'string',
       get: function () { return AppConfig.youtube.clientId || ''; },
       set: function (v) { AppConfig.youtube.clientId = v; } },
-    { id: 'youtube.clientSecret',label: 'OAuth Client Secret',    type: 'string',
+    { id: 'youtube.clientSecret', label: 'OAuth Client Secret',   type: 'string',
       get: function () { return AppConfig.youtube.clientSecret || ''; },
       set: function (v) { AppConfig.youtube.clientSecret = v; } },
-    { id: 'action.oauthLogin',    label: '🔑 Sign in with YouTube',  type: 'action',
+    { id: 'action.oauthLogin',    label: '🔑 Sign in with YouTube', type: 'action',
       action: function () { closeOverlay(); Auth.showLoginUI(); } },
-    { id: 'action.oauthLogout',   label: '⏏ Sign out',               type: 'action',
+    { id: 'action.oauthLogout',   label: '⏏ Sign out',            type: 'action',
       action: function () { Auth.clearToken(); showToast('Signed out.'); } },
-    { id: 'action.oauthStatus',   label: 'Auth status',              type: 'action',
+    { id: 'action.oauthStatus',   label: 'Auth status',           type: 'action',
       action: function () {
         var t = Auth.getToken();
         showToast(t ? (Auth.isValid() ? '✓ Signed in and valid' : '⚠ Token needs refresh') : '✗ Not signed in');
       }},
 
     { section: 'Actions' },
-    { id: 'action.testLog',      label: 'Send test log now',      type: 'action',
+    { id: 'action.testLog',       label: 'Send test log now',     type: 'action',
       action: function () {
         Logger.begin('test','Manual test log');
-        Logger.info('test','Test from settings',{ source:'settings' });
+        Logger.info('test','Test from settings', { source:'settings' });
         Logger.end('test','Manual test log');
       }},
-    { id: 'action.save',         label: '✓ Save & close',         type: 'action',
+    { id: 'action.save',          label: '✓ Save & close',        type: 'action',
       action: function () { AppConfig.save(); Logger.info('settings','Saved'); closeOverlay(); }},
-    { id: 'action.reset',        label: '✗ Reset defaults',       type: 'action',
+    { id: 'action.reset',         label: '✗ Reset defaults',      type: 'action',
       action: function () { AppConfig.reset(); location.reload(); }}
   ];
-
-  // ── OAuth flow UI ─────────────────────────────────────────────────────────
-  function startOAuthFlow() {
-    closeOverlay();
-    showToast('Starting sign-in…');
-    YTPlayer.startDeviceFlow().then(function (data) {
-      if (!data) { showToast('OAuth not configured. Set Client ID first.'); return; }
-      showOAuthDialog(data);
-    });
-  }
-
-  function showOAuthDialog(data) {
-    var dlg = document.getElementById('oauthDialog');
-    if (!dlg) {
-      dlg = document.createElement('div');
-      dlg.id = 'oauthDialog';
-      dlg.style.cssText = [
-        'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.85)',
-        'display:flex;align-items:center;justify-content:center'
-      ].join(';');
-      document.body.appendChild(dlg);
-    }
-    dlg.innerHTML =
-      '<div style="background:#161630;border:2px solid #2e2e60;border-radius:16px;padding:40px;text-align:center;max-width:700px">' +
-      '<h2 style="color:#f0c040;margin-bottom:24px">Sign in to YouTube</h2>' +
-      '<p style="font-size:20px;margin:0 0 12px">Go to: <strong style="color:#4fc">' + data.verification_url + '</strong></p>' +
-      '<p style="font-size:32px;letter-spacing:8px;color:#fff;margin:16px 0;font-weight:bold">' + data.user_code + '</p>' +
-      '<p style="color:#6688aa;font-size:16px">This code expires in ' + Math.round(data.expires_in/60) + ' minutes.</p>' +
-      '<p id="oauthStatus" style="color:#fa0;margin-top:16px">Waiting for you to enter the code…</p>' +
-      '<button id="oauthCancelBtn" style="margin-top:20px;background:#333;border-color:#555">Cancel</button>' +
-      '</div>';
-
-    document.getElementById('oauthCancelBtn').addEventListener('click', function () {
-      YTPlayer.stopPoll();
-      dlg.remove();
-    });
-
-    YTPlayer.pollForToken(data.device_code, data.interval,
-      function (token) {
-        dlg.remove();
-        showToast('✓ Signed in to YouTube!');
-        Logger.info('player','OAuth sign-in complete');
-      },
-      function (reason) {
-        document.getElementById('oauthStatus').textContent = 'Sign-in ' + reason + '.';
-      }
-    );
-  }
 
   // ── Toast ─────────────────────────────────────────────────────────────────
   function showToast(msg) {
@@ -172,10 +164,13 @@
       'position:fixed;bottom:40px;left:50%;transform:translateX(-50%)',
       'background:#1e2e50;border:1px solid #3a4a70;border-radius:10px',
       'padding:14px 28px;font-size:20px;color:#d0d8f0',
-      'z-index:300;opacity:1;transition:opacity 0.5s'
+      'z-index:600;pointer-events:none'
     ].join(';');
     document.body.appendChild(t);
-    setTimeout(function () { t.style.opacity = '0'; }, 2200);
+    setTimeout(function () {
+      t.style.transition = 'opacity 0.5s';
+      t.style.opacity = '0';
+    }, 2200);
     setTimeout(function () { t.remove(); }, 2800);
   }
 
@@ -202,9 +197,16 @@
       row.appendChild(lbl);
       row.appendChild(val);
       settingsList.appendChild(row);
+
       row.addEventListener('keydown', function (e) {
-        if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) { e.stopPropagation(); activateSetting(def, val); }
-        if (e.keyCode === KEY.LEFT && def.type === 'choice')    { e.stopPropagation(); cycleChoice(def, val, -1); }
+        if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) {
+          e.stopPropagation();
+          activateSetting(def, val);
+        }
+        if (e.keyCode === KEY.LEFT && def.type === 'choice') {
+          e.stopPropagation();
+          cycleChoice(def, val, -1);
+        }
       });
       row.addEventListener('click', function () { activateSetting(def, val); });
     });
@@ -212,21 +214,26 @@
 
   function refreshValue(el, def) {
     if (def.type === 'action') { el.textContent = '▶'; el.style.color = '#f0c040'; return; }
-    if (def.type === 'bool')   { var v = def.get(); el.textContent = v ? '✓ ON' : '✗ OFF'; el.style.color = v ? '#4fc' : '#f44'; return; }
+    if (def.type === 'bool') {
+      var bv = def.get();
+      el.textContent = bv ? '✓ ON' : '✗ OFF';
+      el.style.color  = bv ? '#4fc' : '#f44';
+      return;
+    }
     if (def.type === 'choice') { el.textContent = def.get(); el.style.color = '#4fc'; return; }
     var sv = String(def.get() || '');
-    // Mask secrets
-    if (def.id.toLowerCase().indexOf('secret') >= 0 || def.id.toLowerCase().indexOf('apikey') >= 0) {
-      sv = sv ? sv.slice(0,4) + '…' : '(not set)';
+    // Mask secrets/keys
+    if (def.id.indexOf('Secret') >= 0 || def.id.indexOf('apiKey') >= 0) {
+      sv = sv ? sv.slice(0,4) + '…(' + sv.length + ' chars)' : '';
     }
-    el.textContent = sv.length > 34 ? sv.slice(0,31) + '…' : (sv || '(not set)');
-    el.style.color = sv ? '#4fc' : '#556';
+    el.textContent = sv.length > 32 ? sv.slice(0,29) + '…' : (sv || '(not set)');
+    el.style.color  = sv ? '#4fc' : '#556';
   }
 
   function activateSetting(def, valEl) {
-    if (def.type === 'bool')   { def.set(!def.get()); refreshValue(valEl, def); }
-    else if (def.type === 'choice') { cycleChoice(def, valEl, 1); }
-    else if (def.type === 'action') { def.action(); }
+    if (def.type === 'bool')         { def.set(!def.get()); refreshValue(valEl, def); }
+    else if (def.type === 'choice')  { cycleChoice(def, valEl, 1); }
+    else if (def.type === 'action')  { def.action(); }
     else { showInputDialog(def.label, String(def.get() || ''), function (v) { def.set(v); refreshValue(valEl, def); }); }
   }
 
@@ -256,12 +263,15 @@
       if (rows.length) rows[0].focus();
     }
 
+    // Arrow keys inside dialog input should NOT leak to navigation
+    field.onkeydown = function (e) {
+      e.stopPropagation();
+      if (e.keyCode === 13)       { close(true); }
+      if (e.keyCode === KEY.BACK) { close(false); }
+    };
+
     document.getElementById('inputOk').onclick    = function () { close(true); };
     document.getElementById('inputCancel').onclick = function () { close(false); };
-    field.onkeydown = function (e) {
-      if (e.keyCode === 13)       { e.stopPropagation(); close(true); }
-      if (e.keyCode === KEY.BACK) { e.stopPropagation(); close(false); }
-    };
   }
 
   // ── Overlay management ────────────────────────────────────────────────────
@@ -270,18 +280,25 @@
     buildSettings();
     settingsOverlay.classList.remove('hidden');
     activeOverlay = 'settings';
+    // Scroll to top so first item is always visible
+    settingsList.scrollTop = 0;
     var first = settingsList.querySelector('.settings-row');
     if (first) first.focus();
   }
 
   function openDebugConsole() {
-    if (!AppConfig.console.enabled) { showToast('Debug console disabled in Settings'); return; }
+    if (!AppConfig.console.enabled) {
+      showToast('Debug console disabled — enable in Settings');
+      Logger.warn('debug-console','Console disabled');
+      return;
+    }
     applyDebugStyle();
     renderDebugLogs();
     debugOverlay.classList.remove('hidden');
     debugPanel.setAttribute('tabindex','0');
     activeOverlay = 'debug';
     debugPanel.focus();
+    Logger.info('debug-console','Opened');
   }
 
   function closeOverlay() {
@@ -296,10 +313,11 @@
     var c = AppConfig.console, p = debugPanel;
     p.style.width   = c.width  + 'px';
     p.style.height  = c.height + 'px';
-    p.style.opacity = c.opacity;
-    p.style.top = p.style.bottom = p.style.left = p.style.right = '';
-    if (c.position.indexOf('top')  >= 0) p.style.top    = '60px'; else p.style.bottom = '20px';
-    if (c.position.indexOf('left') >= 0) p.style.left   = '20px'; else p.style.right  = '20px';
+    p.style.opacity = String(c.opacity);
+    // Clear all sides first
+    p.style.top = p.style.bottom = p.style.left = p.style.right = 'auto';
+    if (c.position.indexOf('top')    >= 0) p.style.top    = '60px';  else p.style.bottom = '20px';
+    if (c.position.indexOf('left')   >= 0) p.style.left   = '20px';  else p.style.right  = '20px';
   }
 
   function renderDebugLogs() {
@@ -339,20 +357,25 @@
   // ── Navigation ────────────────────────────────────────────────────────────
   function getMainFocusable() {
     return Array.from(document.querySelectorAll('button, input, [tabindex="0"]'))
-      .filter(function (el) { return !el.closest('.overlay') && el.offsetParent !== null; });
+      .filter(function (el) {
+        return !el.closest('.overlay') && el.offsetParent !== null;
+      });
   }
 
   function getOverlayFocusable() {
-    var scope = activeOverlay === 'settings' ? settingsOverlay : null;
-    if (!scope) return [];
-    return Array.from(scope.querySelectorAll('.settings-row, button, input'))
+    if (activeOverlay !== 'settings') return [];
+    return Array.from(settingsOverlay.querySelectorAll('.settings-row, button'))
       .filter(function (el) { return el.offsetParent !== null; });
   }
 
   function moveFocus(dir) {
+    // Never move focus while an input is being edited (no readonly attr)
+    var active = document.activeElement;
+    if (active && active.tagName === 'INPUT' && !active.hasAttribute('readonly')) return;
+
     var list = activeOverlay === 'settings' ? getOverlayFocusable() : getMainFocusable();
     if (!list.length) return;
-    var idx = list.indexOf(document.activeElement);
+    var idx = list.indexOf(active);
     idx = dir === 'next' ? (idx+1) % list.length : (idx-1+list.length) % list.length;
     list[idx].focus();
     list[idx].scrollIntoView({ block:'nearest', behavior:'smooth' });
@@ -360,18 +383,41 @@
 
   document.addEventListener('keydown', function (e) {
     if (inputDialogOpen) return;
-    if (e.keyCode === KEY.YELLOW) { e.preventDefault(); activeOverlay === 'debug' ? closeOverlay() : (activeOverlay === null ? openDebugConsole() : null); return; }
-    if (e.keyCode === KEY.BACK)   { e.preventDefault(); if (activeOverlay) { closeOverlay(); return; } tizen.application.getCurrentApplication().exit(); return; }
+
+    // Yellow — toggle debug console
+    if (e.keyCode === KEY.YELLOW) {
+      e.preventDefault();
+      if (activeOverlay === 'debug') closeOverlay();
+      else if (activeOverlay === null) openDebugConsole();
+      return;
+    }
+
+    // Back — close overlay or exit
+    if (e.keyCode === KEY.BACK) {
+      e.preventDefault();
+      if (activeOverlay) { closeOverlay(); return; }
+      tizen.application.getCurrentApplication().exit();
+      return;
+    }
+
+    // Debug console: scroll only, no other nav
     if (activeOverlay === 'debug') {
       if (e.keyCode === KEY.UP)   { e.preventDefault(); debugLogs.scrollTop -= 80; }
       if (e.keyCode === KEY.DOWN) { e.preventDefault(); debugLogs.scrollTop += 80; }
       return;
     }
+
+    // Don't intercept arrows when an input is actively being edited
+    var active = document.activeElement;
+    var inputEditing = active && active.tagName === 'INPUT' && !active.hasAttribute('readonly');
+    if (inputEditing) return;
+
     if (e.keyCode === KEY.UP   || e.keyCode === KEY.LEFT)  { e.preventDefault(); moveFocus('prev'); }
     if (e.keyCode === KEY.DOWN || e.keyCode === KEY.RIGHT) { e.preventDefault(); moveFocus('next'); }
     if (e.keyCode === KEY.ENTER) {
-      if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
-        e.preventDefault(); document.activeElement.click();
+      if (active && active.tagName !== 'INPUT') {
+        e.preventDefault();
+        active.click();
       }
     }
   });
@@ -382,7 +428,8 @@
     if (typeof webapis === 'undefined' || !webapis.network) {
       Logger.warn('network','webapis.network unavailable');
       networkTextEl.textContent = 'Net API N/A';
-      Logger.end('network','initNetwork'); return;
+      Logger.end('network','initNetwork');
+      return;
     }
     try {
       var connected = webapis.network.isConnectedToGateway();
@@ -394,10 +441,19 @@
       if (!connected) { statusTextEl.textContent = 'No network!'; statusTextEl.style.color = '#f44'; }
       webapis.network.addNetworkStateChangeListener(function (v) {
         var ns = webapis.network.NetworkState;
-        if (v === ns.GATEWAY_DISCONNECTED) { Logger.warn('network','Disconnected'); statusTextEl.textContent = 'Network lost!'; statusTextEl.style.color = '#f44'; }
-        else if (v === ns.GATEWAY_CONNECTED) { Logger.info('network','Connected'); statusTextEl.style.color = ''; initNetwork(); }
+        if (v === ns.GATEWAY_DISCONNECTED) {
+          Logger.warn('network','Disconnected');
+          statusTextEl.textContent = 'Network lost!';
+          statusTextEl.style.color = '#f44';
+        } else if (v === ns.GATEWAY_CONNECTED) {
+          Logger.info('network','Connected');
+          statusTextEl.style.color = '';
+          initNetwork();
+        }
       });
-    } catch (e) { Logger.error('network','Error',{ error:e.message }); }
+    } catch (e) {
+      Logger.error('network','Error',{ error:e.message });
+    }
     Logger.end('network','initNetwork');
   }
 
@@ -406,8 +462,9 @@
     Logger.begin('youtube','fetchPlaylistItems');
     var apiKey     = AppConfig.youtube.apiKey;
     var playlistId = document.getElementById('playlistId').value.trim();
+
     if (!apiKey)     { apiOutputEl.textContent = 'No API key — set in ⚙ Settings.'; Logger.warn('youtube','No API key'); Logger.end('youtube','fetchPlaylistItems'); return; }
-    if (!playlistId) { apiOutputEl.textContent = 'Enter a playlist ID.'; Logger.warn('youtube','No playlist ID'); Logger.end('youtube','fetchPlaylistItems'); return; }
+    if (!playlistId) { apiOutputEl.textContent = 'Enter a playlist ID first.'; Logger.warn('youtube','No playlist ID'); Logger.end('youtube','fetchPlaylistItems'); return; }
 
     var url = 'https://www.googleapis.com/youtube/v3/playlistItems?' +
       new URLSearchParams({ part:'snippet', playlistId:playlistId, maxResults:'5', key:apiKey });
@@ -416,7 +473,9 @@
       var res  = await fetch(url);
       var data = await res.json();
       if (!res.ok) throw new Error((data.error && data.error.message) || 'HTTP '+res.status);
-      var items = (data.items||[]).map(function (it,i) { return (i+1)+'. '+((it.snippet&&it.snippet.title)||'(no title)'); });
+      var items = (data.items||[]).map(function (it,i) {
+        return (i+1)+'. '+((it.snippet&&it.snippet.title)||'(no title)');
+      });
       apiOutputEl.textContent = items.length ? 'Fetched '+items.length+' items:\n'+items.join('\n') : 'No items.';
       Logger.info('youtube','Done',{ count:items.length });
     } catch (err) {
@@ -434,7 +493,8 @@
     var app = tizen.application.getCurrentApplication();
     versionTextEl.textContent = app.appInfo.id + '  v' + app.appInfo.version;
     Logger.info('main','Started',{
-      id: app.appInfo.id, version: app.appInfo.version,
+      id:       app.appInfo.id,
+      version:  app.appInfo.version,
       platform: tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version')
     });
 
@@ -442,6 +502,7 @@
     initReadonlyInputs();
     initNetwork();
 
+    // Live-update debug console when new logs arrive
     Logger.onLog(function () { if (activeOverlay === 'debug') renderDebugLogs(); });
 
     gearBtn.addEventListener('click', openSettings);

@@ -104,8 +104,12 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
 
 /* ── Settings overlay ──────────────────────────────────── */
 .settings-panel {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 880px;
-  max-height: 84vh;
+  max-height: calc(100vh - 40px);
   background: #16162a;
   border: 1px solid #2e2e50;
   border-radius: 14px;
