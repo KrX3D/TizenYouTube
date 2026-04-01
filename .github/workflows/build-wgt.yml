@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths-ignore:
       - '.github/**'
+      - 'README.md'
     tags:
       - 'v*.*.*'
   pull_request:
     paths-ignore:
       - '.github/**'
+      - 'README.md'
   workflow_dispatch:
     inputs:
       release_version:
@@ -99,8 +101,15 @@ jobs:
           echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
 
           cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
-          sed -i "s|\$GITHUB_WORKSPACE|${GITHUB_WORKSPACE}|g" "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
-          sed -i "s|\$KEY_PW|${AUTHOR_P12_PASSWORD}|g" "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
+          python - <<'PY_REPL'
+from pathlib import Path
+import os
+path = Path(os.environ['GITHUB_WORKSPACE']) / 'tizen-data/profile/profiles.xml'
+text = path.read_text()
+text = text.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE'])
+text = text.replace('$KEY_PW', os.environ['AUTHOR_P12_PASSWORD'])
+path.write_text(text)
+PY_REPL
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
@@ -127,6 +136,17 @@ jobs:
           tizen package -t wgt -s TizenYouTube -- ./
           mkdir -p ../dist
           cp *.wgt ../dist/TizenYouTube.wgt
+
+      - name: Show Tizen CLI log on failure
+        if: failure()
+        run: |
+          LOG_PATH="${GITHUB_WORKSPACE}/tizen-studio-data/cli/logs/cli.log"
+          if [ -f "$LOG_PATH" ]; then
+            echo "--- tizen cli.log ---"
+            cat "$LOG_PATH"
+          else
+            echo "No cli.log found at $LOG_PATH"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
