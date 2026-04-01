@@ -427,6 +427,10 @@
     var isYellow = (e.keyCode === KEY.YELLOW || e.keyCode === 405 || e.key === 'ColorF2Yellow');
     var isDebugFallback = (e.keyCode === KEY.RED || e.keyCode === 403 || e.key === 'ColorF0Red' ||
       e.keyCode === KEY.GREEN || e.keyCode === 404 || e.key === 'ColorF1Green');
+    if (e.keyCode === KEY.RED || e.keyCode === KEY.GREEN || e.keyCode === KEY.YELLOW || e.keyCode === KEY.BLUE ||
+        e.keyCode === 403 || e.keyCode === 404 || e.keyCode === 405 || e.keyCode === 406) {
+      Logger.info('keys', 'Color key pressed', { keyCode: e.keyCode, key: e.key });
+    }
     if (isYellow) {
       e.preventDefault();
       Logger.info('debug-console', 'Yellow key pressed', { keyCode: e.keyCode, key: e.key });

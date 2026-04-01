@@ -29,7 +29,8 @@
     var xhr = new XMLHttpRequest();
     xhr.open('GET', path, true);
     xhr.onload  = function () {
-      if (xhr.status === 200) {
+      var looksLocalSuccess = (xhr.status === 0 && typeof xhr.responseText === 'string' && xhr.responseText.length > 0);
+      if (xhr.status === 200 || looksLocalSuccess) {
         Logger.info('youtube', 'Loaded injection script', { path: path, bytes: xhr.responseText.length });
         cb(null, xhr.responseText);
         return;

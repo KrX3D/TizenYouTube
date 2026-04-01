@@ -141,11 +141,10 @@ pre {
 
 /* ── Focus ─────────────────────────────────────────────── */
 :focus         { outline: none; }
+button:focus,
 button:focus-visible   { background: #3366dd; border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
+input:focus,
 input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow: 0 0 0 2px rgba(240,192,64,0.35); }
-button:focus:not(:focus-visible),
-input:focus:not(:focus-visible),
-.settings-row:focus:not(:focus-visible) { outline: none; }
 
 /* ── Overlay base ──────────────────────────────────────── */
 .overlay {
