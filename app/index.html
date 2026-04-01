@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1" />
+  <title>TizenYouTube</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>TizenYouTube starter</h1>
+    <p>This starter validates launch + debugging on Samsung Tizen TV (5.5+).</p>
+
+    <section class="card">
+      <h2>Status</h2>
+      <p id="status">Initializing…</p>
+      <p id="version"></p>
+      <p id="platform"></p>
+    </section>
+
+    <section class="card">
+      <h2>YouTube API test</h2>
+      <p>Paste an API key and playlist ID to test <code>playlistItems.list</code>.</p>
+      <label>API key <input id="apiKey" type="password" placeholder="AIza..." /></label>
+      <label>Playlist ID <input id="playlistId" type="text" placeholder="PL..." /></label>
+      <button id="fetchBtn">Fetch first 5 items</button>
+      <pre id="apiOutput">No request sent yet.</pre>
+    </section>
+
+    <section class="card">
+      <h2>Remote log forwarding</h2>
+      <p>Optional: sends startup/test events to your HTTP log endpoint.</p>
+      <label>Log endpoint URL <input id="logEndpoint" type="text" placeholder="http://192.168.1.10:3030/tv-log" /></label>
+      <button id="sendRemoteLogBtn">Send test log to server</button>
+    </section>
+
+    <section class="card">
+      <h2>Debug helper</h2>
+      <p>Use this to verify logs are visible from your PC over <code>sdb dlog</code>.</p>
+      <button id="debugBtn">Emit test debug log</button>
+      <pre id="logOutput"></pre>
+    </section>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>
