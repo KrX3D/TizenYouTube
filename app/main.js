@@ -207,8 +207,16 @@
 
   function installLatestFromGitHub() {
     var repo = 'KrX3D/TizenYouTube';
-    if (!window.RuntimePatchBridge || !window.RuntimePatchBridge.installFromGitHub) {
-      showToast('Runtime service bridge unavailable');
+    var fallbackUrl = 'https://github.com/' + repo + '/releases/latest';
+    if (!window.RuntimePatchBridge || !window.RuntimePatchBridge.installFromGitHub || !window.RuntimePatchBridge.isAvailable()) {
+      Logger.warn('update', 'Runtime service bridge unavailable, opening releases page', { repo: repo });
+      showToast('Service unavailable, opening latest release page');
+      try {
+        var ctrl = new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/view', fallbackUrl);
+        tizen.application.launchAppControl(ctrl, null, function () {}, function () {});
+      } catch (_) {
+        window.location.href = fallbackUrl;
+      }
       return;
     }
     Logger.info('update', 'Request install from GitHub', { repo: repo });

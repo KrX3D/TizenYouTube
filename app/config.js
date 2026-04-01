@@ -22,9 +22,9 @@
       clientSecret: ''
     },
     runtimePatch: {
-      enabled: true,
-      serviceAppId: 'krx3dYtV01.RuntimePatchService',
-      fallbackToDirectNavigation: false
+      enabled: false,
+      serviceAppId: '',
+      fallbackToDirectNavigation: true
     }
   };
 
@@ -48,9 +48,6 @@
       cfg = stored ? deepMerge(defaults, JSON.parse(stored)) : deepMerge(defaults, {});
     } catch (e) {
       cfg = deepMerge(defaults, {});
-    }
-    if (cfg.runtimePatch && !cfg.runtimePatch.serviceAppId) {
-      cfg.runtimePatch.serviceAppId = 'krx3dYtV01.RuntimePatchService';
     }
     return cfg;
   }
