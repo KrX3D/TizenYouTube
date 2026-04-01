@@ -81,7 +81,7 @@ jobs:
           RELEASE_VERSION: ${{ env.release_version }}
         run: |
           APP_VERSION="${RELEASE_VERSION#v}"
-          python3 -c "import json,re; from pathlib import Path; app_version='${APP_VERSION}'; config_path=Path('app/config.xml'); config_content=config_path.read_text(encoding='utf-8'); config_content,count=re.subn(r'version=\\\"[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\"', f'version=\\\"{app_version}\\\"', config_content, count=1); assert count==1, 'Failed to update version attribute in app/config.xml'; config_path.write_text(config_content, encoding='utf-8'); package_json_path=Path('app/package.json'); package_json=json.loads(package_json_path.read_text(encoding='utf-8')); package_json['version']=app_version; package_json_path.write_text(json.dumps(package_json, indent=2) + '\\n', encoding='utf-8'); print(f'Synchronized app/config.xml and app/package.json to version {app_version}')"
+          python3 -c "import json,xml.etree.ElementTree as ET; from pathlib import Path; app_version='${APP_VERSION}'; config_path=Path('app/config.xml'); tree=ET.parse(config_path); root=tree.getroot(); root.set('version', app_version); tree.write(config_path, encoding='UTF-8', xml_declaration=True); package_json_path=Path('app/package.json'); package_json=json.loads(package_json_path.read_text(encoding='utf-8')); package_json['version']=app_version; package_json_path.write_text(json.dumps(package_json, indent=2) + '\\n', encoding='utf-8'); print(f'Synchronized app/config.xml and app/package.json to version {app_version}')"
 
       - name: Validate app version consistency
         run: |
