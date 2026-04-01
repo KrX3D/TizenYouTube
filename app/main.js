@@ -80,10 +80,17 @@
 
   // ─── Network status (Samsung Network API) ─────────────────────────────────
   function initNetwork() {
+    // webapis is only available when network.public privilege is declared
+    // AND the app was installed with that privilege in config.xml.
+    // If it shows "unavailable", reinstall the WGT built after adding the privilege.
+    if (typeof webapis === 'undefined' || !webapis.network) {
+      log('Network API unavailable — reinstall WGT with network.public privilege in config.xml');
+      return;
+    }
+
     try {
       var connected = webapis.network.isConnectedToGateway();
       var type = webapis.network.getActiveConnectionType();
-      // type: 0=disconnected, 1=WiFi, 2=cellular, 3=ethernet
       var typeNames = { 0: 'Disconnected', 1: 'WiFi', 2: 'Cellular', 3: 'Ethernet' };
       log('Network: ' + (typeNames[type] || type) + ' | Gateway: ' + connected);
 
@@ -104,7 +111,7 @@
         }
       });
     } catch (e) {
-      log('Network API unavailable: ' + e.message);
+      log('Network API error: ' + e.message);
     }
   }
 

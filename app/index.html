@@ -21,8 +21,8 @@
     <section class="card">
       <h2>YouTube API test</h2>
       <p>Paste an API key and playlist ID to test <code>playlistItems.list</code>.</p>
-      <label>API key <input id="apiKey" type="password" placeholder="AIza..." /></label>
-      <label>Playlist ID <input id="playlistId" type="password" placeholder="PL..." /></label>
+      <label>API key <input id="apiKey" type="url" placeholder="AIza..." /></label>
+      <label>Playlist ID <input id="playlistId" type="url" placeholder="PL..." /></label>
       <button id="fetchBtn">Fetch first 5 items</button>
       <pre id="apiOutput">No request sent yet.</pre>
     </section>
@@ -30,7 +30,7 @@
     <section class="card">
       <h2>Remote log forwarding</h2>
       <p>Optional: sends startup/test events to your HTTP log endpoint.</p>
-      <label>Log endpoint URL <input id="logEndpoint" type="password" placeholder="http://192.168.1.10:3030/tv-log" /></label>
+      <label>Log endpoint URL <input id="logEndpoint" type="url" placeholder="http://192.168.50.133:3030/tv-log" /></label>
       <button id="sendRemoteLogBtn">Send test log to server</button>
     </section>
 
