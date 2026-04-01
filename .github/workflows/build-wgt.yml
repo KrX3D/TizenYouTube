@@ -96,7 +96,7 @@ jobs:
 
       - name: Validate app version consistency
         run: |
-          CONFIG_VER=$(grep -oP '<widget[^>]+version="\K[^"]+' app/config.xml)
+          CONFIG_VER=$(grep -oP '^\s*version="\K[^"]+' app/config.xml)
           PKG_VER=$(node -e "process.stdout.write(require('./app/package.json').version)")
 
           echo "config.xml version : ${CONFIG_VER}"
