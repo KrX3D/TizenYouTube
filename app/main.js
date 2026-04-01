@@ -28,8 +28,11 @@
       supported.forEach(function (k) {
         if (toRegister.indexOf(k.name) >= 0) {
           tizen.tvinputdevice.registerKey(k.name);
-          // k.code can be a string on some firmware — force to number
-          var code = parseInt(k.code, 10);
+          // k.code is undefined on Tizen 5.5/6.5 — use keyCode fallback
+          var code = (k.code !== undefined && k.code !== null)
+            ? parseInt(k.code, 10)
+            : k.keyCode;
+          if (!code || isNaN(code)) return; // skip if still invalid
           if (k.name === 'ColorF2Yellow') KEY.YELLOW = code;
           if (k.name === 'ColorF0Red')    KEY.RED    = code;
           if (k.name === 'ColorF1Green')  KEY.GREEN  = code;
@@ -43,14 +46,14 @@
       Logger.warn('main', 'Key registration failed', { error: e.message });
     }
 
-    // Add a catch-all to log any unrecognised key so we can see the real code
+    // Log any unknown key so we can see real codes on this TV
     document.addEventListener('keydown', function (e) {
       var known = [KEY.UP, KEY.DOWN, KEY.LEFT, KEY.RIGHT,
                    KEY.ENTER, KEY.BACK, KEY.YELLOW, KEY.RED, KEY.GREEN, KEY.BLUE];
       if (known.indexOf(e.keyCode) === -1) {
-        Logger.debug('main', 'Unknown key pressed', { keyCode: e.keyCode });
+        Logger.debug('main', 'Unknown key', { keyCode: e.keyCode });
       }
-    }, true); // capture phase so it fires before other handlers
+    }, true);
   }
 
   // ── Readonly inputs: keyboard only opens on Enter ─────────────────────────
@@ -146,7 +149,12 @@
       get: function () { return AppConfig.youtube.clientSecret || ''; },
       set: function (v) { AppConfig.youtube.clientSecret = v; } },
     { id: 'action.oauthLogin',    label: '🔑 Sign in with YouTube', type: 'action',
-      action: function () { closeOverlay(); Auth.showLoginUI(); } },
+      action: function () {
+        // Close settings first, then open auth dialog after overlay is gone
+        settingsOverlay.classList.add('hidden');
+        activeOverlay = null;
+        setTimeout(function () { Auth.showLoginUI(); }, 200);
+      }},
     { id: 'action.oauthLogout',   label: '⏏ Sign out',            type: 'action',
       action: function () { Auth.clearToken(); showToast('Signed out.'); } },
     { id: 'action.oauthStatus',   label: 'Auth status',           type: 'action',
@@ -156,6 +164,10 @@
       }},
 
     { section: 'Actions' },
+    { id: 'action.yellowTest',    label: '🟡 Press Yellow now & check log', type: 'action',
+      action: function () {
+        Logger.info('settings', 'Current KEY.YELLOW value', { yellow: KEY.YELLOW });
+      }},
     { id: 'action.testLog',       label: 'Send test log now',     type: 'action',
       action: function () {
         Logger.begin('test','Manual test log');
@@ -317,8 +329,12 @@
     settingsOverlay.classList.add('hidden');
     debugOverlay.classList.add('hidden');
     activeOverlay = null;
-    var f = getMainFocusable();
-    if (f.length) f[0].focus();
+    // Delay focus restore to avoid keyup firing on the newly-focused element
+    // (e.g. Enter on "Save & close" would re-trigger gearBtn click without delay)
+    setTimeout(function () {
+      var f = getMainFocusable();
+      if (f.length) f[0].focus();
+    }, 150);
   }
 
   function applyDebugStyle() {
