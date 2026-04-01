@@ -12,7 +12,6 @@
 
   var activeOverlay   = null;
 
-  // Samsung TV remote key codes — Yellow can be 405 OR 'ColorF2Yellow' name
   var KEY = {
     UP: 38, DOWN: 40, LEFT: 37, RIGHT: 39,
     ENTER: 13, BACK: 10009,
@@ -28,11 +27,11 @@
       supported.forEach(function (k) {
         if (toRegister.indexOf(k.name) >= 0) {
           tizen.tvinputdevice.registerKey(k.name);
-          // k.code is undefined on Tizen 5.5/6.5 — use keyCode fallback
+          // k.code is undefined on Tizen 5.5/6.5 — fall back to k.keyCode
           var code = (k.code !== undefined && k.code !== null)
             ? parseInt(k.code, 10)
             : k.keyCode;
-          if (!code || isNaN(code)) return; // skip if still invalid
+          if (!code || isNaN(code)) return;
           if (k.name === 'ColorF2Yellow') KEY.YELLOW = code;
           if (k.name === 'ColorF0Red')    KEY.RED    = code;
           if (k.name === 'ColorF1Green')  KEY.GREEN  = code;
@@ -46,7 +45,7 @@
       Logger.warn('main', 'Key registration failed', { error: e.message });
     }
 
-    // Log any unknown key so we can see real codes on this TV
+    // Log any unrecognised key so we can see real codes
     document.addEventListener('keydown', function (e) {
       var known = [KEY.UP, KEY.DOWN, KEY.LEFT, KEY.RIGHT,
                    KEY.ENTER, KEY.BACK, KEY.YELLOW, KEY.RED, KEY.GREEN, KEY.BLUE];
@@ -56,43 +55,32 @@
     }, true);
   }
 
-  // ── Readonly inputs: keyboard only opens on Enter ─────────────────────────
+  // ── Readonly inputs ───────────────────────────────────────────────────────
   function initReadonlyInputs() {
     document.querySelectorAll('main input').forEach(function (input) {
-      // Make readonly by default so arrow keys don't open keyboard
       input.setAttribute('readonly', '');
 
       input.addEventListener('keydown', function (e) {
-        // When readonly, Enter opens the keyboard
         if (input.hasAttribute('readonly')) {
           if (e.keyCode === KEY.ENTER) {
             e.stopPropagation();
             e.preventDefault();
             input.removeAttribute('readonly');
-            // Re-focus to trigger keyboard
             input.blur();
             input.focus();
           }
-          // While readonly, let arrow keys pass through to navigation
           return;
         }
-
-        // When editing (keyboard open):
-        // Left/Right move cursor inside field — do NOT propagate to nav handler
         if (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT) {
-          e.stopPropagation(); // prevent moveFocus()
-          return; // let browser handle cursor
+          e.stopPropagation();
+          return;
         }
-
-        // Enter confirms and closes keyboard
         if (e.keyCode === KEY.ENTER) {
           e.stopPropagation();
           e.preventDefault();
           input.setAttribute('readonly', '');
           input.blur();
         }
-
-        // Back cancels editing
         if (e.keyCode === KEY.BACK) {
           e.stopPropagation();
           e.preventDefault();
@@ -150,7 +138,6 @@
       set: function (v) { AppConfig.youtube.clientSecret = v; } },
     { id: 'action.oauthLogin',    label: '🔑 Sign in with YouTube', type: 'action',
       action: function () {
-        // Close settings first, then open auth dialog after overlay is gone
         settingsOverlay.classList.add('hidden');
         activeOverlay = null;
         setTimeout(function () { Auth.showLoginUI(); }, 200);
@@ -163,17 +150,34 @@
         showToast(t ? (Auth.isValid() ? '✓ Signed in and valid' : '⚠ Token needs refresh') : '✗ Not signed in');
       }},
 
-    { section: 'Actions' },
-    { id: 'action.yellowTest',    label: '🟡 Press Yellow now & check log', type: 'action',
+    { section: 'YouTube TV' },
+    { id: 'action.ytReload',      label: '↺ Reload YouTube TV',   type: 'action',
+      action: function () { closeOverlay(); setTimeout(function () { YouTubeTV.reload(); }, 200); }},
+    { id: 'action.ytDebugInfo',   label: 'YouTube TV debug info', type: 'action',
       action: function () {
-        Logger.info('settings', 'Current KEY.YELLOW value', { yellow: KEY.YELLOW });
+        Logger.info('youtube', 'WebView status', {
+          ready: YouTubeTV.isReady(),
+          hasWebview: !!YouTubeTV.getWebview()
+        });
+        showToast('See debug console for webview status');
       }},
-    { id: 'action.testLog',       label: 'Send test log now',     type: 'action',
+
+    { section: 'Diagnostics' },
+    { id: 'action.yellowTest',    label: '🟡 Yellow key code',     type: 'action',
+      action: function () {
+        Logger.info('settings', 'KEY values', {
+          yellow: KEY.YELLOW, red: KEY.RED, green: KEY.GREEN, blue: KEY.BLUE
+        });
+        showToast('KEY.YELLOW = ' + KEY.YELLOW);
+      }},
+    { id: 'action.testLog',       label: 'Send test log',         type: 'action',
       action: function () {
         Logger.begin('test','Manual test log');
         Logger.info('test','Test from settings', { source:'settings' });
         Logger.end('test','Manual test log');
       }},
+
+    { section: 'Actions' },
     { id: 'action.save',          label: '✓ Save & close',        type: 'action',
       action: function () { AppConfig.save(); Logger.info('settings','Saved'); closeOverlay(); }},
     { id: 'action.reset',         label: '✗ Reset defaults',      type: 'action',
@@ -191,14 +195,11 @@
       'z-index:600;pointer-events:none'
     ].join(';');
     document.body.appendChild(t);
-    setTimeout(function () {
-      t.style.transition = 'opacity 0.5s';
-      t.style.opacity = '0';
-    }, 2200);
+    setTimeout(function () { t.style.transition = 'opacity 0.5s'; t.style.opacity = '0'; }, 2200);
     setTimeout(function () { t.remove(); }, 2800);
   }
 
-  // ── Build settings UI ─────────────────────────────────────────────────────
+  // ── Build settings ────────────────────────────────────────────────────────
   function buildSettings() {
     settingsList.innerHTML = '';
     SETTINGS_DEF.forEach(function (def) {
@@ -223,14 +224,8 @@
       settingsList.appendChild(row);
 
       row.addEventListener('keydown', function (e) {
-        if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) {
-          e.stopPropagation();
-          activateSetting(def, val);
-        }
-        if (e.keyCode === KEY.LEFT && def.type === 'choice') {
-          e.stopPropagation();
-          cycleChoice(def, val, -1);
-        }
+        if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) { e.stopPropagation(); activateSetting(def, val); }
+        if (e.keyCode === KEY.LEFT && def.type === 'choice')    { e.stopPropagation(); cycleChoice(def, val, -1); }
       });
       row.addEventListener('click', function () { activateSetting(def, val); });
     });
@@ -246,7 +241,6 @@
     }
     if (def.type === 'choice') { el.textContent = def.get(); el.style.color = '#4fc'; return; }
     var sv = String(def.get() || '');
-    // Mask secrets/keys
     if (def.id.indexOf('Secret') >= 0 || def.id.indexOf('apiKey') >= 0) {
       sv = sv ? sv.slice(0,4) + '…(' + sv.length + ' chars)' : '';
     }
@@ -255,9 +249,9 @@
   }
 
   function activateSetting(def, valEl) {
-    if (def.type === 'bool')         { def.set(!def.get()); refreshValue(valEl, def); }
-    else if (def.type === 'choice')  { cycleChoice(def, valEl, 1); }
-    else if (def.type === 'action')  { def.action(); }
+    if (def.type === 'bool')        { def.set(!def.get()); refreshValue(valEl, def); }
+    else if (def.type === 'choice') { cycleChoice(def, valEl, 1); }
+    else if (def.type === 'action') { def.action(); }
     else { showInputDialog(def.label, String(def.get() || ''), function (v) { def.set(v); refreshValue(valEl, def); }); }
   }
 
@@ -287,13 +281,11 @@
       if (rows.length) rows[0].focus();
     }
 
-    // Arrow keys inside dialog input should NOT leak to navigation
     field.onkeydown = function (e) {
       e.stopPropagation();
       if (e.keyCode === 13)       { close(true); }
       if (e.keyCode === KEY.BACK) { close(false); }
     };
-
     document.getElementById('inputOk').onclick    = function () { close(true); };
     document.getElementById('inputCancel').onclick = function () { close(false); };
   }
@@ -304,7 +296,6 @@
     buildSettings();
     settingsOverlay.classList.remove('hidden');
     activeOverlay = 'settings';
-    // Scroll to top so first item is always visible
     settingsList.scrollTop = 0;
     var first = settingsList.querySelector('.settings-row');
     if (first) first.focus();
@@ -313,7 +304,6 @@
   function openDebugConsole() {
     if (!AppConfig.console.enabled) {
       showToast('Debug console disabled — enable in Settings');
-      Logger.warn('debug-console','Console disabled');
       return;
     }
     applyDebugStyle();
@@ -329,8 +319,7 @@
     settingsOverlay.classList.add('hidden');
     debugOverlay.classList.add('hidden');
     activeOverlay = null;
-    // Delay focus restore to avoid keyup firing on the newly-focused element
-    // (e.g. Enter on "Save & close" would re-trigger gearBtn click without delay)
+    // Delay to avoid keyup firing on newly-focused element (prevents re-open bug)
     setTimeout(function () {
       var f = getMainFocusable();
       if (f.length) f[0].focus();
@@ -342,10 +331,9 @@
     p.style.width   = c.width  + 'px';
     p.style.height  = c.height + 'px';
     p.style.opacity = String(c.opacity);
-    // Clear all sides first
     p.style.top = p.style.bottom = p.style.left = p.style.right = 'auto';
-    if (c.position.indexOf('top')    >= 0) p.style.top    = '60px';  else p.style.bottom = '20px';
-    if (c.position.indexOf('left')   >= 0) p.style.left   = '20px';  else p.style.right  = '20px';
+    if (c.position.indexOf('top')    >= 0) p.style.top    = '60px'; else p.style.bottom = '20px';
+    if (c.position.indexOf('left')   >= 0) p.style.left   = '20px'; else p.style.right  = '20px';
   }
 
   function renderDebugLogs() {
@@ -397,10 +385,8 @@
   }
 
   function moveFocus(dir) {
-    // Never move focus while an input is being edited (no readonly attr)
     var active = document.activeElement;
     if (active && active.tagName === 'INPUT' && !active.hasAttribute('readonly')) return;
-
     var list = activeOverlay === 'settings' ? getOverlayFocusable() : getMainFocusable();
     if (!list.length) return;
     var idx = list.indexOf(active);
@@ -412,41 +398,43 @@
   document.addEventListener('keydown', function (e) {
     if (inputDialogOpen) return;
 
-    // Yellow — toggle debug console
+    // Yellow — toggle debug console from anywhere
     if (e.keyCode === KEY.YELLOW) {
       e.preventDefault();
-      if (activeOverlay === 'debug') closeOverlay();
-      else if (activeOverlay === null) openDebugConsole();
+      if (activeOverlay === 'debug') {
+        closeOverlay();
+      } else {
+        settingsOverlay.classList.add('hidden');
+        activeOverlay = null;
+        openDebugConsole();
+      }
       return;
     }
 
-    // Back — close overlay or exit
+    // Back — close overlay or go back in webview or exit
     if (e.keyCode === KEY.BACK) {
       e.preventDefault();
       if (activeOverlay) { closeOverlay(); return; }
+      if (YouTubeTV && YouTubeTV.isReady()) { YouTubeTV.goBack(); return; }
       tizen.application.getCurrentApplication().exit();
       return;
     }
 
-    // Debug console: scroll only, no other nav
+    // Debug console scroll only
     if (activeOverlay === 'debug') {
       if (e.keyCode === KEY.UP)   { e.preventDefault(); debugLogs.scrollTop -= 80; }
       if (e.keyCode === KEY.DOWN) { e.preventDefault(); debugLogs.scrollTop += 80; }
       return;
     }
 
-    // Don't intercept arrows when an input is actively being edited
+    // Don't intercept when editing an input
     var active = document.activeElement;
-    var inputEditing = active && active.tagName === 'INPUT' && !active.hasAttribute('readonly');
-    if (inputEditing) return;
+    if (active && active.tagName === 'INPUT' && !active.hasAttribute('readonly')) return;
 
     if (e.keyCode === KEY.UP   || e.keyCode === KEY.LEFT)  { e.preventDefault(); moveFocus('prev'); }
     if (e.keyCode === KEY.DOWN || e.keyCode === KEY.RIGHT) { e.preventDefault(); moveFocus('next'); }
     if (e.keyCode === KEY.ENTER) {
-      if (active && active.tagName !== 'INPUT') {
-        e.preventDefault();
-        active.click();
-      }
+      if (active && active.tagName !== 'INPUT') { e.preventDefault(); active.click(); }
     }
   });
 
@@ -471,8 +459,7 @@
         var ns = webapis.network.NetworkState;
         if (v === ns.GATEWAY_DISCONNECTED) {
           Logger.warn('network','Disconnected');
-          statusTextEl.textContent = 'Network lost!';
-          statusTextEl.style.color = '#f44';
+          statusTextEl.textContent = 'Network lost!'; statusTextEl.style.color = '#f44';
         } else if (v === ns.GATEWAY_CONNECTED) {
           Logger.info('network','Connected');
           statusTextEl.style.color = '';
@@ -485,14 +472,14 @@
     Logger.end('network','initNetwork');
   }
 
-  // ── YouTube playlist ──────────────────────────────────────────────────────
+  // ── YouTube playlist fallback ─────────────────────────────────────────────
   async function fetchPlaylistItems() {
     Logger.begin('youtube','fetchPlaylistItems');
     var apiKey     = AppConfig.youtube.apiKey;
-    var playlistId = document.getElementById('playlistId').value.trim();
-
-    if (!apiKey)     { apiOutputEl.textContent = 'No API key — set in ⚙ Settings.'; Logger.warn('youtube','No API key'); Logger.end('youtube','fetchPlaylistItems'); return; }
-    if (!playlistId) { apiOutputEl.textContent = 'Enter a playlist ID first.'; Logger.warn('youtube','No playlist ID'); Logger.end('youtube','fetchPlaylistItems'); return; }
+    var playlistId = document.getElementById('playlistId') &&
+                     document.getElementById('playlistId').value.trim();
+    if (!apiKey)     { if (apiOutputEl) apiOutputEl.textContent = 'No API key — set in ⚙ Settings.'; Logger.warn('youtube','No API key'); Logger.end('youtube','fetchPlaylistItems'); return; }
+    if (!playlistId) { if (apiOutputEl) apiOutputEl.textContent = 'Enter a playlist ID first.'; Logger.warn('youtube','No playlist ID'); Logger.end('youtube','fetchPlaylistItems'); return; }
 
     var url = 'https://www.googleapis.com/youtube/v3/playlistItems?' +
       new URLSearchParams({ part:'snippet', playlistId:playlistId, maxResults:'5', key:apiKey });
@@ -504,10 +491,10 @@
       var items = (data.items||[]).map(function (it,i) {
         return (i+1)+'. '+((it.snippet&&it.snippet.title)||'(no title)');
       });
-      apiOutputEl.textContent = items.length ? 'Fetched '+items.length+' items:\n'+items.join('\n') : 'No items.';
+      if (apiOutputEl) apiOutputEl.textContent = items.length ? 'Fetched '+items.length+' items:\n'+items.join('\n') : 'No items.';
       Logger.info('youtube','Done',{ count:items.length });
     } catch (err) {
-      apiOutputEl.textContent = 'Error: '+err.message;
+      if (apiOutputEl) apiOutputEl.textContent = 'Error: '+err.message;
       Logger.error('youtube','Failed',{ error:err.message });
     }
     Logger.end('youtube','fetchPlaylistItems');
@@ -519,7 +506,7 @@
     statusTextEl.textContent = 'Running';
 
     var app = tizen.application.getCurrentApplication();
-    versionTextEl.textContent = app.appInfo.id + '  v' + app.appInfo.version;
+    versionTextEl.textContent = 'v' + app.appInfo.version;
     Logger.info('main','Started',{
       id:       app.appInfo.id,
       version:  app.appInfo.version,
@@ -530,11 +517,29 @@
     initReadonlyInputs();
     initNetwork();
 
-    // Live-update debug console when new logs arrive
     Logger.onLog(function () { if (activeOverlay === 'debug') renderDebugLogs(); });
 
     gearBtn.addEventListener('click', openSettings);
-    document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
+
+    var fetchBtn = document.getElementById('fetchBtn');
+    if (fetchBtn) fetchBtn.addEventListener('click', fetchPlaylistItems);
+
+    // Start YouTube TV webview
+    YouTubeTV.init();
+
+    // Hide fallback UI and banner once YouTube TV page loads
+    setTimeout(function () {
+      var wv = YouTubeTV.getWebview();
+      if (wv) {
+        wv.addEventListener('loadstop', function () {
+          var fallback = document.getElementById('fallbackUI');
+          var banner   = document.getElementById('statusBanner');
+          if (fallback) fallback.classList.add('hidden');
+          if (banner)   banner.classList.add('hidden');
+          Logger.info('main','YouTube TV loaded — UI hidden');
+        });
+      }
+    }, 100);
 
     var f = getMainFocusable();
     if (f.length) f[0].focus();

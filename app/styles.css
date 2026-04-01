@@ -19,9 +19,10 @@ body {
   align-items: center;
   padding: 0 24px;
   gap: 28px;
-  z-index: 10;
+  z-index: 50;
 }
 .status-banner span { font-size: 17px; color: #8888aa; white-space: nowrap; }
+.status-banner.hidden { display: none; }
 #statusText  { color: #4fc; font-weight: bold; font-size: 18px; }
 #versionText { color: #6680aa; }
 #networkText { color: #88aacc; }
@@ -38,6 +39,49 @@ body {
   outline: none;
   margin-top: 0;
 }
+#gearBtn:focus { border-color: #f0c040; background: #28283c; outline: 3px solid #f0c040; }
+
+/* ── YouTube TV container ──────────────────────────────── */
+.yt-container {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  background: #000;
+}
+
+.yt-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6688aa;
+  font-size: 22px;
+  gap: 20px;
+}
+
+.yt-spinner {
+  width: 48px; height: 48px;
+  border: 4px solid #2a2a4a;
+  border-top-color: #4488cc;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.yt-error {
+  color: #f44;
+  font-size: 20px;
+  text-align: center;
+  padding: 40px;
+}
+
+/* ── Fallback UI ───────────────────────────────────────── */
+#fallbackUI {
+  position: relative;
+  z-index: 2;
+}
+#fallbackUI.hidden { display: none; }
 
 /* ── Content ───────────────────────────────────────────── */
 .container { padding: 70px 32px 32px; max-width: 1400px; margin: 0 auto; }
@@ -86,13 +130,11 @@ pre {
 }
 
 /* ── Focus ─────────────────────────────────────────────── */
-:focus              { outline: 3px solid #f0c040; outline-offset: 2px; }
-button:focus        { background: #3366dd; border-color: #f0c040; }
-input:focus         { border-color: #f0c040; background: #1c1c2e; }
-#gearBtn:focus      { border-color: #f0c040; background: #28283c; }
+:focus         { outline: 3px solid #f0c040; outline-offset: 2px; }
+button:focus   { background: #3366dd; border-color: #f0c040; }
+input:focus    { border-color: #f0c040; background: #1c1c2e; }
 
 /* ── Overlay base ──────────────────────────────────────── */
-/* No padding, no centering — each overlay positions its own panel */
 .overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -102,11 +144,9 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
 .overlay.hidden { display: none; }
 
 /* ── Settings panel ────────────────────────────────────── */
-/* Positioned from top-left corner, full height scrollable */
 .settings-panel {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 880px;
   height: 100%;
   background: #16162a;
@@ -142,15 +182,13 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
   font-size: 19px;
   cursor: pointer;
 }
-.settings-row:focus  { outline: 3px solid #f0c040; background: #1e1e38; border-color: #f0c040; }
+.settings-row:focus { outline: 3px solid #f0c040; background: #1e1e38; border-color: #f0c040; }
 .settings-label { color: #b0b0d0; }
 .settings-value { font-weight: bold; max-width: 380px; text-align: right; }
 .hint { color: #36366a; font-size: 15px; margin-top: 14px; }
 
-/* ── Debug console overlay ─────────────────────────────── */
-.debug-overlay {
-  background: rgba(0,0,0,0.45);
-}
+/* ── Debug console ─────────────────────────────────────── */
+.debug-overlay { background: rgba(0,0,0,0.45); }
 
 .debug-panel {
   position: absolute;
@@ -217,36 +255,3 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
 }
 .input-dialog-label { margin: 0 0 14px; color: #9090c8; font-size: 20px; }
 .input-dialog-btns { display: flex; gap: 12px; margin-top: 16px; }
-
-/* ── YouTube player card ───────────────────────────────── */
-.player-card {
-  background: #1e1e2e;
-  border: 1px solid #2e2e44;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 18px 0;
-}
-.player-card h2 { margin: 0 0 12px; color: #9090c0; font-size: 22px; }
-
-#playerContainer {
-  width: 100%;
-  aspect-ratio: 16/9;
-  background: #0a0a14;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-}
-#playerContainer iframe {
-  width: 100%; height: 100%;
-  border: none;
-}
-.player-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #44446a;
-  font-size: 20px;
-}
-.player-controls { display: flex; gap: 12px; margin-top: 12px; align-items: center; }
-.player-controls input { flex: 1; max-width: 520px; margin-top: 0; }
