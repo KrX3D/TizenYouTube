@@ -75,6 +75,66 @@ jobs:
           echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_ENV"
           echo "publish_release=${{ github.event.inputs.publish_release }}" >> "$GITHUB_ENV"
 
+      - name: Sync app version from release tag
+        if: env.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ env.release_version }}
+        run: |
+          APP_VERSION="${RELEASE_VERSION#v}"
+          export APP_VERSION
+          python3 - <<'PY'
+import json
+import os
+import re
+
+app_version = os.environ["APP_VERSION"]
+
+config_path = "app/config.xml"
+with open(config_path, "r", encoding="utf-8") as f:
+    config_content = f.read()
+
+config_content, count = re.subn(r'version=\"[0-9]+\\.[0-9]+\\.[0-9]+\"', f'version=\"{app_version}\"', config_content, count=1)
+if count != 1:
+    raise SystemExit("Failed to update version attribute in app/config.xml")
+
+with open(config_path, "w", encoding="utf-8") as f:
+    f.write(config_content)
+
+package_json_path = "app/package.json"
+with open(package_json_path, "r", encoding="utf-8") as f:
+    package_json = json.load(f)
+package_json["version"] = app_version
+with open(package_json_path, "w", encoding="utf-8") as f:
+    json.dump(package_json, f, indent=2)
+    f.write("\n")
+
+print(f"Synchronized app/config.xml and app/package.json to version {app_version}")
+PY
+
+      - name: Validate app version consistency
+        run: |
+          python3 - <<'PY'
+import json
+import re
+import xml.etree.ElementTree as ET
+
+with open("app/package.json", "r", encoding="utf-8") as f:
+    package_json = json.load(f)
+package_version = package_json.get("version", "")
+
+root = ET.parse("app/config.xml").getroot()
+config_version = root.attrib.get("version", "")
+
+if not re.match(r"^\d+\.\d+\.\d+$", config_version):
+    raise SystemExit(f"Invalid config.xml version format: {config_version}")
+if package_version != config_version:
+    raise SystemExit(
+        f"Version mismatch: app/package.json={package_version}, app/config.xml={config_version}"
+    )
+
+print(f"Version consistency OK: {config_version}")
+PY
+
       - name: Install tooling
         run: |
           sudo apt-get update
@@ -101,7 +161,7 @@ jobs:
           echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
 
           cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
-          python -c "from pathlib import Path; import os; p=Path(os.environ['GITHUB_WORKSPACE'])/'tizen-data/profile/profiles.xml'; t=p.read_text(); t=t.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('$KEY_PW', os.environ['AUTHOR_P12_PASSWORD']); p.write_text(t)"
+          python3 -c "from pathlib import Path; import os; from xml.sax.saxutils import escape; p=Path(os.environ['GITHUB_WORKSPACE'])/'tizen-data/profile/profiles.xml'; t=p.read_text(); t=t.replace('$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('$KEY_PW', escape(os.environ['AUTHOR_P12_PASSWORD'], {'\"':'&quot;'})); p.write_text(t)"
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
