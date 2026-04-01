@@ -81,12 +81,9 @@ jobs:
           APP_VERSION="${{ env.release_version }}"
           APP_VERSION="${APP_VERSION#v}"
 
-          # Patch only the first version="..." in config.xml using sed.
-          # Deliberately NOT using xml.etree.ElementTree — it remaps tizen: to ns1:
-          # which breaks TizenBrewInstaller's config.xml parser.
-          sed -i "0,/version=\"[^\"]*\"/s/version=\"[^\"]*\"/version=\"${APP_VERSION}\"/" app/config.xml
+          # Target only the <widget ...> line, not the <?xml version="1.0"?> declaration
+          sed -i '/<widget/s/version="[^"]*"/version="'"${APP_VERSION}"'"/' app/config.xml
 
-          # package.json is plain JSON, safe to patch with node
           node -e "
             const fs = require('fs');
             const p = 'app/package.json';
