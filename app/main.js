@@ -225,6 +225,8 @@
   function showInputDialog(label, current, cb) {
     var dlg   = document.getElementById('inputDialog');
     var field = document.getElementById('inputDialogField');
+    var okBtn = document.getElementById('inputOk');
+    var cancelBtn = document.getElementById('inputCancel');
     document.getElementById('inputDialogLabel').textContent = label;
     field.value = current;
     field.removeAttribute('readonly');
@@ -238,9 +240,27 @@
       var rows = settingsList.querySelectorAll('.settings-row');
       if (rows.length) rows[0].focus();
     }
-    field.onkeydown = function (e) { e.stopPropagation(); if (e.keyCode === 13) close(true); if (e.keyCode === KEY.BACK) close(false); };
-    document.getElementById('inputOk').onclick    = function () { close(true); };
-    document.getElementById('inputCancel').onclick = function () { close(false); };
+    field.onkeydown = function (e) {
+      e.stopPropagation();
+      if (e.keyCode === 13) close(true);
+      else if (e.keyCode === KEY.BACK) close(false);
+      else if (e.keyCode === KEY.DOWN) { e.preventDefault(); okBtn.focus(); }
+    };
+    okBtn.onkeydown = function (e) {
+      e.stopPropagation();
+      if (e.keyCode === 13) close(true);
+      else if (e.keyCode === KEY.BACK) close(false);
+      else if (e.keyCode === KEY.RIGHT) { e.preventDefault(); cancelBtn.focus(); }
+      else if (e.keyCode === KEY.LEFT || e.keyCode === KEY.UP) { e.preventDefault(); field.focus(); }
+    };
+    cancelBtn.onkeydown = function (e) {
+      e.stopPropagation();
+      if (e.keyCode === 13 || e.keyCode === KEY.BACK) close(false);
+      else if (e.keyCode === KEY.LEFT) { e.preventDefault(); okBtn.focus(); }
+      else if (e.keyCode === KEY.UP) { e.preventDefault(); field.focus(); }
+    };
+    okBtn.onclick = function () { close(true); };
+    cancelBtn.onclick = function () { close(false); };
   }
 
   // ── Overlay management ────────────────────────────────────────────────────

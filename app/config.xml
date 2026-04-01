@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://krx3d.com/tizenyoutube"
-        version="0.1.40"
+        version="0.1.35"
         viewmodes="maximized">
   <name>TizenYouTube</name>
   <access origin="*" subdomains="true"></access>
@@ -13,6 +13,11 @@
   <tizen:application id="krx3dYtV01.TizenYouTube"
                      package="krx3dYtV01"
                      required_version="3.0"/>
+  <tizen:service id="krx3dYtV01.RuntimePatchService" auto-restart="false" on-boot="false">
+    <tizen:content src="service/runtimePatchService.js"/>
+    <tizen:name>RuntimePatchService</tizen:name>
+    <tizen:description>Runtime patch handoff scaffold service</tizen:description>
+  </tizen:service>
   <tizen:profile name="tv-samsung"/>
   <tizen:setting screen-orientation="landscape"
                  context-menu="enable"
@@ -21,6 +26,7 @@
                  install-location="auto"
                  hwkey-event="enable"/>
   <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
   <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
 </widget>

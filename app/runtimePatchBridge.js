@@ -5,7 +5,7 @@
 
   function getServiceAppId() {
     var cfg = window.AppConfig && window.AppConfig.runtimePatch;
-    return (cfg && cfg.serviceAppId) || '';
+    return (cfg && cfg.serviceAppId) || 'krx3dYtV01.RuntimePatchService';
   }
 
   function launchWithService(payload, cb) {

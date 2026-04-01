@@ -24,8 +24,45 @@
 */
 
 (function () {
-  // Placeholder so this file can be included/packaged safely.
-  if (typeof console !== 'undefined') {
-    console.log('[TYT service] Runtime patch service scaffold loaded');
+  function safeParse(text) {
+    try { return JSON.parse(text); } catch (_) { return null; }
   }
+
+  function getLaunchPayload() {
+    try {
+      var req = tizen.application.getCurrentApplication().getRequestedAppControl();
+      if (!req || !req.appControl || !req.appControl.data) return null;
+      var data = req.appControl.data;
+      for (var i = 0; i < data.length; i += 1) {
+        if (data[i].key === 'runtimePatchPayload' && data[i].value && data[i].value.length) {
+          return safeParse(data[i].value[0]);
+        }
+      }
+    } catch (e) {
+      console.error('[TYT service] Failed to read AppControl payload', e);
+    }
+    return null;
+  }
+
+  function launchYouTubeTarget(payload) {
+    var targetUrl = (payload && payload.targetUrl) || 'https://www.youtube.com/tv';
+    try {
+      var appControl = new tizen.ApplicationControl(
+        'http://tizen.org/appcontrol/operation/view',
+        targetUrl
+      );
+      tizen.application.launchAppControl(
+        appControl,
+        null,
+        function () { console.log('[TYT service] LaunchAppControl success', targetUrl); },
+        function (e) { console.error('[TYT service] LaunchAppControl failed', e); }
+      );
+    } catch (e) {
+      console.error('[TYT service] launchYouTubeTarget error', e);
+    }
+  }
+
+  var payload = getLaunchPayload();
+  console.log('[TYT service] Runtime patch service invoked', payload || {});
+  launchYouTubeTarget(payload);
 })();
