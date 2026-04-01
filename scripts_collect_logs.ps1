@@ -1,6 +1,5 @@
 param(
-  [Parameter(Mandatory=$true)]
-  [string]$TvIp,
+  [string]$TvIp = "192.168.1.10",
   [int]$Port = 26101
 )
 
