@@ -1,7 +1,7 @@
 # TizenYouTube (Starter)
 
 Minimal Samsung Tizen TV web app starter for Tizen 5.5+.
-
+ 
 ## Quick debug notes
 
 - `26101` is for **SDB** between PC and TV.
