@@ -24,7 +24,7 @@
     runtimePatch: {
       enabled: false,
       serviceAppId: '',
-      fallbackToDirectNavigation: true
+      fallbackToDirectNavigation: false
     }
   };
 

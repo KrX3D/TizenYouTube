@@ -2,7 +2,9 @@ param(
   [int]$Port = 3030,
   [string]$OutputFile = "tv.log",
   [string]$SyslogForwardIp = "",      # Set to your syslog server IP to forward (e.g. "192.168.1.10")
-  [int]$SyslogForwardPort = 514
+  [int]$SyslogForwardPort = 514,
+  [switch]$ConfigureWindowsFirewall = $true,
+  [string]$UrlAclUser = "Jeder"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +13,17 @@ $LogPath   = Join-Path $ScriptDir $OutputFile
 
 $Listener = [System.Net.HttpListener]::new()
 $Listener.Prefixes.Add("http://*:$Port/")
+
+if ($ConfigureWindowsFirewall) {
+  Write-Host "Configuring URLACL and firewall for TCP $Port ..."
+  try {
+    & netsh http add urlacl url="http://*:$Port/" user="$UrlAclUser" | Out-Null
+  } catch {}
+  try {
+    & netsh advfirewall firewall add rule name="Allow TV Log Receiver TCP $Port" dir=in action=allow protocol=TCP localport=$Port | Out-Null
+  } catch {}
+}
+
 $Listener.Start()
 
 Write-Host "Log receiver on http://*:$Port/tv-log  →  $LogPath"

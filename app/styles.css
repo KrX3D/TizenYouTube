@@ -32,7 +32,7 @@ body {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 18px;
 }
 .status-sep { color: #3f4f70; font-size: 18px; }
 
@@ -48,7 +48,7 @@ body {
   outline: none;
   margin-top: 0;
 }
-#gearBtn:focus { border-color: #f0c040; background: #28283c; outline: 3px solid #f0c040; }
+#gearBtn:focus { border-color: #f0c040; background: #28283c; outline: none; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
 
 /* ── YouTube TV container ──────────────────────────────── */
 .yt-container {
@@ -109,11 +109,12 @@ label { display: block; margin: 10px 0; font-size: 19px; }
 .input-row {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 14px;
   margin-top: 6px;
 }
-.input-row input  { flex: 1; max-width: 520px; margin-top: 0; }
-.input-row button { margin-top: 0; white-space: nowrap; }
+.input-row input  { flex: 1; min-width: 0; max-width: 520px; margin-top: 0; }
+.input-row button { margin-top: 0; white-space: nowrap; flex-shrink: 0; border-radius: 10px; }
 
 input {
   width: 100%; max-width: 580px;
@@ -139,9 +140,9 @@ pre {
 }
 
 /* ── Focus ─────────────────────────────────────────────── */
-:focus         { outline: 3px solid #f0c040; outline-offset: 2px; }
-button:focus   { background: #3366dd; border-color: #f0c040; }
-input:focus    { border-color: #f0c040; background: #1c1c2e; }
+:focus         { outline: none; }
+button:focus-visible   { background: #3366dd; border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
+input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow: 0 0 0 2px rgba(240,192,64,0.35); }
 button:focus:not(:focus-visible),
 input:focus:not(:focus-visible),
 .settings-row:focus:not(:focus-visible) { outline: none; }
@@ -151,7 +152,7 @@ input:focus:not(:focus-visible),
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 100;
-  background: rgba(0,0,0,0.72);
+  background: rgba(0,0,0,0.58);
 }
 .overlay.hidden { display: none; }
 
@@ -176,7 +177,7 @@ input:focus:not(:focus-visible),
   padding: 14px 6px 4px;
   font-size: 13px;
   font-weight: bold;
-  color: #4a5a88;
+  color: #8097cb;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   border-top: 1px solid #20203a;
@@ -197,7 +198,7 @@ input:focus:not(:focus-visible),
 .settings-row:focus { outline: none; background: #222246; border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
 .settings-label { color: #b0b0d0; }
 .settings-value { font-weight: bold; max-width: 380px; text-align: right; }
-.hint { color: #36366a; font-size: 15px; margin-top: 14px; }
+.hint { color: #8ea2cc; font-size: 15px; margin-top: 14px; }
 
 /* ── Debug console ─────────────────────────────────────── */
 .debug-overlay { background: rgba(0,0,0,0.45); }
@@ -206,7 +207,7 @@ input:focus:not(:focus-visible),
   position: absolute;
   display: flex;
   flex-direction: column;
-  background: rgba(18, 20, 35, 0.98);
+  background: rgba(28, 32, 52, 0.99);
   border: 1px solid #324668;
   border-radius: 10px;
   overflow: hidden;
@@ -217,13 +218,13 @@ input:focus:not(:focus-visible),
   justify-content: space-between;
   align-items: center;
   padding: 8px 14px;
-  background: #13203a;
+  background: #1d2f52;
   border-bottom: 1px solid #2e4770;
   font-size: 15px;
   color: #9df2cf;
   flex-shrink: 0;
 }
-.debug-header .hint { color: #7d97b8; font-size: 13px; margin: 0; }
+.debug-header .hint { color: #c6d6ef; font-size: 13px; margin: 0; }
 
 .debug-logs {
   flex: 1;
@@ -232,13 +233,13 @@ input:focus:not(:focus-visible),
   font-family: 'Courier New', monospace;
   font-size: 14px;
   color: #dce7ff;
-  background: rgba(10, 14, 24, 0.45);
+  background: rgba(18, 22, 36, 0.55);
 }
 
 .dl-separator {
   padding: 6px 4px 2px;
   font-size: 11px;
-  color: #7aa4d7;
+  color: #aac8ef;
   letter-spacing: 0.08em;
   border-top: 1px solid #243753;
   margin-top: 4px;
@@ -251,10 +252,10 @@ input:focus:not(:focus-visible),
   border-bottom: 1px solid #1e2f47;
   align-items: baseline;
 }
-.dl-ts   { color: #8fb1db; min-width: 96px; font-size: 12px; }
+.dl-ts   { color: #bfd9ff; min-width: 96px; font-size: 12px; }
 .dl-lvl  { min-width: 52px; font-weight: bold; font-size: 12px; }
 .dl-msg  { color: #eef4ff; flex: 1; }
-.dl-data { width: 100%; color: #b8cfff; font-size: 12px; padding-left: 164px; margin-top: 1px; }
+.dl-data { width: 100%; color: #d5e4ff; font-size: 12px; padding-left: 164px; margin-top: 1px; }
 
 /* ── Input dialog ──────────────────────────────────────── */
 .input-dialog-panel {
@@ -268,8 +269,8 @@ input:focus:not(:focus-visible),
   padding: 28px;
 }
 .input-dialog-label { margin: 0 0 14px; color: #9090c8; font-size: 20px; }
-.input-dialog-btns { display: flex; gap: 12px; margin-top: 16px; }
-#inputDialogField { caret-color: #f0c040; }
+.input-dialog-btns { display: flex; gap: 18px; margin-top: 18px; }
+#inputDialogField { caret-color: transparent; }
 
 /* ── Launch screen ─────────────────────────────────────── */
 .launch-screen {
@@ -310,3 +311,7 @@ input:focus:not(:focus-visible),
   padding: 7px 16px;
 }
 .banner-actions button:focus { border-color: #f0c040; background: #2f3150; outline: none; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
+
+#playlistOverlay .input-row input { max-width: none; }
+#playlistOverlay #fetchBtn,
+#playlistOverlay #playlistCloseBtn { border-radius: 10px; }

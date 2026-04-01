@@ -57,6 +57,7 @@
 
   function launch() {
     Logger.begin('youtube', 'launch');
+    var launchStatusEl = document.getElementById('launchStatus');
 
     loadAllScripts(function (scripts) {
       try {
@@ -102,6 +103,9 @@
           Logger.error('youtube', 'Runtime patch handoff failed', { error: err.message || String(err) });
           var fallback = !!(window.AppConfig.runtimePatch && window.AppConfig.runtimePatch.fallbackToDirectNavigation);
           if (!fallback) {
+            if (launchStatusEl) {
+              launchStatusEl.innerHTML = 'Runtime patch failed: <strong>' + (err.message || String(err)) + '</strong>. Stayed on main screen.';
+            }
             Logger.end('youtube', 'launch');
             return;
           }
