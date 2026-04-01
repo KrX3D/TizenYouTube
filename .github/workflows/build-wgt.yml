@@ -97,8 +97,6 @@ jobs:
 
       - name: Validate app version consistency
         run: |
-          # Match lines starting with whitespace + version= (the widget attribute line).
-          # The <?xml version="1.0"?> declaration starts with <? so it never matches.
           CONFIG_VER=$(grep -oP '^\s*version="\K[^"]+' app/config.xml)
           PKG_VER=$(node -e "process.stdout.write(require('./app/package.json').version)")
 
@@ -108,6 +106,23 @@ jobs:
           [[ "$CONFIG_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid config.xml version format: ${CONFIG_VER}"; exit 1; }
           [ "$CONFIG_VER" = "$PKG_VER" ] || { echo "Version mismatch: config.xml=${CONFIG_VER} package.json=${PKG_VER}"; exit 1; }
           echo "Version consistency OK: ${CONFIG_VER}"
+
+      - name: Determine source branch for release notes
+        run: |
+          BRANCH=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin --contains "$GITHUB_SHA" | sed 's#^origin/##' | grep -v '^HEAD$' | head -n1)
+          if [ -z "$BRANCH" ]; then
+            BRANCH="unknown (tag build)"
+          fi
+          echo "SOURCE_BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Determine app metadata for release notes
+        run: |
+          APP_ID=$(sed -n 's/.*<tizen:application[^>]*id="\([^"]*\)".*/\1/p' app/config.xml | head -n1)
+          APP_NAME=$(echo "$APP_ID" | sed -n 's/^[^.]*\.\(.*\)$/\1/p')
+          if [ -z "$APP_ID" ]; then APP_ID="unknown"; fi
+          if [ -z "$APP_NAME" ]; then APP_NAME="unknown"; fi
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
 
       - name: Install tooling
         run: |
@@ -186,5 +201,9 @@ jobs:
         with:
           tag_name: ${{ env.release_version }}
           name: TizenYouTube ${{ env.release_version }}
+          body: |
+            Built from branch: `${{ env.SOURCE_BRANCH }}`
+            Commit: `${{ github.sha }}`
+            TBI_METADATA: {"appId":"${{ env.APP_ID }}","appName":"${{ env.APP_NAME }}"}
           files: dist/TizenYouTube.wgt
           generate_release_notes: true
