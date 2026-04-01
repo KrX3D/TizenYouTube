@@ -7,43 +7,63 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <!-- ── Top status banner ─────────────────────────────── -->
+  <header class="status-banner">
+    <span id="statusText">Initializing…</span>
+    <span id="versionText"></span>
+    <span id="networkText"></span>
+    <button id="gearBtn" class="gear-btn">⚙ Settings</button>
+  </header>
+
+  <!-- ── Main content ──────────────────────────────────── -->
   <main class="container">
-    <h1>TizenYouTube starter</h1>
-    <p>This starter validates launch + debugging on Samsung Tizen TV (5.5+).</p>
-
-    <section class="card">
-      <h2>Status</h2>
-      <p id="status">Initializing…</p>
-      <p id="version"></p>
-      <p id="platform"></p>
-    </section>
-
     <section class="card">
       <h2>YouTube API test</h2>
-      <p>Paste an API key and playlist ID to test <code>playlistItems.list</code>.</p>
-      <label>API key <input id="apiKey" type="text" placeholder="AIza..." /></label>
-      <label>Playlist ID <input id="playlistId" type="text" placeholder="PL..." /></label>
+      <p>Set your API key in <strong>⚙ Settings</strong> first.</p>
+      <label>Playlist ID
+        <input id="playlistId" type="text" placeholder="PL…" />
+      </label>
       <button id="fetchBtn">Fetch first 5 items</button>
       <pre id="apiOutput">No request sent yet.</pre>
     </section>
-
-    <section class="card">
-      <h2>Remote log forwarding</h2>
-      <p>Optional: sends startup/test events to your HTTP log endpoint.</p>
-      <label>Log endpoint URL <input id="logEndpoint" type="text" placeholder="http://192.168.50.133:3030/tv-log" /></label>
-      <button id="sendRemoteLogBtn">Send test log to server</button>
-    </section>
-
-    <section class="card">
-      <h2>Debug helper</h2>
-      <p>Use this to verify logs are visible from your PC over <code>sdb dlog</code>.</p>
-      <button id="debugBtn">Emit test debug log</button>
-      <pre id="logOutput"></pre>
-    </section>
   </main>
 
-  <!-- Required to access webapis.* (Samsung Product APIs) -->
+  <!-- ── Settings overlay ──────────────────────────────── -->
+  <div id="settingsOverlay" class="overlay hidden">
+    <div class="settings-panel">
+      <h2>⚙ Settings</h2>
+      <div id="settingsList" class="settings-list"></div>
+      <p class="hint">↑↓ navigate · Enter / → toggle · ← cycle back · Back/Esc close</p>
+    </div>
+  </div>
+
+  <!-- ── Debug console overlay ─────────────────────────── -->
+  <div id="debugOverlay" class="overlay debug-overlay hidden">
+    <div id="debugPanel" class="debug-panel">
+      <div class="debug-header">
+        <span>🐛 Debug Console</span>
+        <span class="hint">↑↓ scroll · Yellow to close</span>
+      </div>
+      <div id="debugLogs" class="debug-logs"></div>
+    </div>
+  </div>
+
+  <!-- ── Input dialog (used by settings) ───────────────── -->
+  <div id="inputDialog" class="overlay hidden input-dialog-overlay">
+    <div class="input-dialog-panel">
+      <p id="inputDialogLabel" class="input-dialog-label"></p>
+      <input id="inputDialogField" type="text" />
+      <div class="input-dialog-btns">
+        <button id="inputOk">✓ OK</button>
+        <button id="inputCancel">✗ Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script type="text/javascript" src="$WEBAPIS/webapis/webapis.js"></script>
+  <script src="config.js"></script>
+  <script src="logger.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

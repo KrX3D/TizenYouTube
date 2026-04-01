@@ -1,228 +1,437 @@
 (function () {
-  const statusEl = document.getElementById('status');
-  const versionEl = document.getElementById('version');
-  const platformEl = document.getElementById('platform');
-  const logOutputEl = document.getElementById('logOutput');
-  const apiOutputEl = document.getElementById('apiOutput');
-  const logEndpointEl = document.getElementById('logEndpoint');
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  var statusTextEl   = document.getElementById('statusText');
+  var versionTextEl  = document.getElementById('versionText');
+  var networkTextEl  = document.getElementById('networkText');
+  var gearBtn        = document.getElementById('gearBtn');
+  var settingsOverlay = document.getElementById('settingsOverlay');
+  var settingsList   = document.getElementById('settingsList');
+  var debugOverlay   = document.getElementById('debugOverlay');
+  var debugPanel     = document.getElementById('debugPanel');
+  var debugLogs      = document.getElementById('debugLogs');
+  var apiOutputEl    = document.getElementById('apiOutput');
 
-  // ─── TV Remote key codes ───────────────────────────────────────────────────
-  const KEY = {
-    UP:    38,
-    DOWN:  40,
-    LEFT:  37,
-    RIGHT: 39,
-    ENTER: 13,
-    BACK:  10009,
+  // ── State ─────────────────────────────────────────────────────────────────
+  var activeOverlay = null; // 'settings' | 'debug' | null
+
+  // ── Key codes ─────────────────────────────────────────────────────────────
+  var KEY = {
+    UP: 38, DOWN: 40, LEFT: 37, RIGHT: 39,
+    ENTER: 13, BACK: 10009,
+    YELLOW: 405, RED: 403, GREEN: 404, BLUE: 406
   };
 
+  // ── Register remote keys ──────────────────────────────────────────────────
   function registerKeys() {
     try {
-      var supportedKeys = tizen.tvinputdevice.getSupportedKeys();
-      var toRegister = ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop',
-                        'MediaFastForward', 'MediaRewind'];
-      supportedKeys.forEach(function (key) {
-        if (toRegister.indexOf(key.name) >= 0) {
-          tizen.tvinputdevice.registerKey(key.name);
+      var supported = tizen.tvinputdevice.getSupportedKeys();
+      ['ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue',
+       'MediaPlayPause','MediaPlay','MediaPause','MediaStop'].forEach(function (name) {
+        if (supported.some(function (k) { return k.name === name; })) {
+          tizen.tvinputdevice.registerKey(name);
         }
       });
     } catch (e) {
-      log('Key registration skipped: ' + e.message);
+      Logger.warn('main', 'Key registration failed', { error: e.message });
     }
   }
 
-  // ─── Spatial navigation ────────────────────────────────────────────────────
-  function getFocusable() {
-    return Array.from(document.querySelectorAll('button, input, [tabindex="0"]'))
-      .filter(function (el) {
-        return !el.disabled && el.offsetParent !== null;
-      });
-  }
+  // ── Settings definition ───────────────────────────────────────────────────
+  var SETTINGS_DEF = [
+    { section: 'Debug' },
+    { id: 'debug.enabled',       label: 'Debug logging enabled',  type: 'bool',
+      get: function () { return AppConfig.debug.enabled; },
+      set: function (v) { AppConfig.debug.enabled = v; } },
+    { id: 'debug.remoteLogging', label: 'Remote log server',       type: 'bool',
+      get: function () { return AppConfig.debug.remoteLogging; },
+      set: function (v) { AppConfig.debug.remoteLogging = v; } },
+    { id: 'debug.serverIp',      label: 'Log server IP',           type: 'string',
+      get: function () { return AppConfig.debug.serverIp; },
+      set: function (v) { AppConfig.debug.serverIp = v; } },
+    { id: 'debug.serverPort',    label: 'Log server port',         type: 'number',
+      get: function () { return AppConfig.debug.serverPort; },
+      set: function (v) { AppConfig.debug.serverPort = parseInt(v, 10) || 3030; } },
 
-  function moveFocus(direction) {
-    var focusable = getFocusable();
-    if (!focusable.length) return;
-    var idx = focusable.indexOf(document.activeElement);
-    idx = direction === 'next'
-      ? (idx + 1) % focusable.length
-      : (idx - 1 + focusable.length) % focusable.length;
-    focusable[idx].focus();
-    focusable[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
+    { section: 'Debug Console' },
+    { id: 'console.enabled',     label: 'Enable (Yellow key)',     type: 'bool',
+      get: function () { return AppConfig.console.enabled; },
+      set: function (v) { AppConfig.console.enabled = v; } },
+    { id: 'console.position',    label: 'Position',               type: 'choice',
+      choices: ['top-left','top-right','bottom-left','bottom-right'],
+      get: function () { return AppConfig.console.position; },
+      set: function (v) { AppConfig.console.position = v; } },
+    { id: 'console.width',       label: 'Width (px)',             type: 'number',
+      get: function () { return AppConfig.console.width; },
+      set: function (v) { AppConfig.console.width = parseInt(v, 10) || 900; } },
+    { id: 'console.height',      label: 'Height (px)',            type: 'number',
+      get: function () { return AppConfig.console.height; },
+      set: function (v) { AppConfig.console.height = parseInt(v, 10) || 500; } },
+    { id: 'console.opacity',     label: 'Opacity (0.1–1.0)',      type: 'number',
+      get: function () { return AppConfig.console.opacity; },
+      set: function (v) { AppConfig.console.opacity = parseFloat(v) || 0.93; } },
 
-  function initNavigation() {
-    document.addEventListener('keydown', function (e) {
-      switch (e.keyCode) {
-        case KEY.UP:
-        case KEY.LEFT:
-          e.preventDefault();
-          moveFocus('prev');
-          break;
-        case KEY.DOWN:
-        case KEY.RIGHT:
-          e.preventDefault();
-          moveFocus('next');
-          break;
-        case KEY.ENTER:
-          if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
-            e.preventDefault();
-            document.activeElement.click();
-          }
-          break;
-        case KEY.BACK:
-          tizen.application.getCurrentApplication().exit();
-          break;
+    { section: 'YouTube' },
+    { id: 'youtube.apiKey',      label: 'API key',                type: 'string',
+      get: function () { return AppConfig.youtube.apiKey; },
+      set: function (v) { AppConfig.youtube.apiKey = v; } },
+
+    { section: 'Actions' },
+    { id: 'action.testLog',      label: 'Send test log now',      type: 'action',
+      action: function () {
+        Logger.begin('test', 'Manual test log');
+        Logger.info('test', 'Test event from settings', { source: 'settings-action' });
+        Logger.end('test', 'Manual test log');
+      }},
+    { id: 'action.save',         label: '✓ Save & close',         type: 'action',
+      action: function () {
+        AppConfig.save();
+        Logger.info('settings', 'Settings saved');
+        closeOverlay();
+      }},
+    { id: 'action.reset',        label: '✗ Reset to defaults',    type: 'action',
+      action: function () {
+        AppConfig.reset();
+        location.reload();
+      }}
+  ];
+
+  // ── Build settings UI ─────────────────────────────────────────────────────
+  function buildSettings() {
+    settingsList.innerHTML = '';
+
+    SETTINGS_DEF.forEach(function (def) {
+      if (def.section) {
+        var hdr = document.createElement('div');
+        hdr.className = 'settings-section-header';
+        hdr.textContent = def.section;
+        settingsList.appendChild(hdr);
+        return;
       }
+
+      var row = document.createElement('div');
+      row.className = 'settings-row';
+      row.setAttribute('tabindex', '0');
+
+      var lbl = document.createElement('span');
+      lbl.className = 'settings-label';
+      lbl.textContent = def.label;
+
+      var val = document.createElement('span');
+      val.className = 'settings-value';
+      refreshValue(val, def);
+
+      row.appendChild(lbl);
+      row.appendChild(val);
+      settingsList.appendChild(row);
+
+      row.addEventListener('keydown', function (e) {
+        if (e.keyCode === KEY.ENTER || e.keyCode === KEY.RIGHT) {
+          e.stopPropagation();
+          activateSetting(def, val);
+        }
+        if (e.keyCode === KEY.LEFT && def.type === 'choice') {
+          e.stopPropagation();
+          cycleChoice(def, val, -1);
+        }
+      });
+      row.addEventListener('click', function () { activateSetting(def, val); });
     });
-    var focusable = getFocusable();
-    if (focusable.length) focusable[0].focus();
   }
 
-  // ─── Network status (Samsung Network API) ─────────────────────────────────
-  function initNetwork() {
-    // webapis is only available when network.public privilege is declared
-    // AND the app was installed with that privilege in config.xml.
-    // If it shows "unavailable", reinstall the WGT built after adding the privilege.
-    if (typeof webapis === 'undefined' || !webapis.network) {
-      log('Network API unavailable — reinstall WGT with network.public privilege in config.xml');
+  function refreshValue(el, def) {
+    if (def.type === 'action') { el.textContent = '▶ press Enter'; el.style.color = '#f0c040'; return; }
+    if (def.type === 'bool')   { el.textContent = def.get() ? '✓ ON' : '✗ OFF'; el.style.color = def.get() ? '#4fc' : '#f44'; return; }
+    if (def.type === 'choice') { el.textContent = def.get(); el.style.color = '#4fc'; return; }
+    var v = String(def.get() || '');
+    el.textContent = v.length > 34 ? v.slice(0, 31) + '…' : (v || '(not set)');
+    el.style.color = v ? '#4fc' : '#666';
+  }
+
+  function activateSetting(def, valEl) {
+    if (def.type === 'bool')   { def.set(!def.get()); refreshValue(valEl, def); }
+    else if (def.type === 'choice') { cycleChoice(def, valEl, 1); }
+    else if (def.type === 'action') { def.action(); }
+    else { showInputDialog(def.label, String(def.get() || ''), function (v) { def.set(v); refreshValue(valEl, def); }); }
+  }
+
+  function cycleChoice(def, valEl, dir) {
+    var c = def.choices;
+    var next = (c.indexOf(def.get()) + dir + c.length) % c.length;
+    def.set(c[next]);
+    refreshValue(valEl, def);
+  }
+
+  // Inline input dialog
+  var inputDialogOpen = false;
+  function showInputDialog(label, current, cb) {
+    var dlg = document.getElementById('inputDialog');
+    document.getElementById('inputDialogLabel').textContent = label;
+    var field = document.getElementById('inputDialogField');
+    field.value = current;
+    dlg.classList.remove('hidden');
+    inputDialogOpen = true;
+    setTimeout(function () { field.focus(); }, 50);
+
+    function close(save) {
+      dlg.classList.add('hidden');
+      inputDialogOpen = false;
+      if (save) cb(field.value);
+      var rows = settingsList.querySelectorAll('.settings-row');
+      if (rows.length) rows[0].focus();
+    }
+
+    document.getElementById('inputOk').onclick     = function () { close(true); };
+    document.getElementById('inputCancel').onclick  = function () { close(false); };
+    field.onkeydown = function (e) {
+      if (e.keyCode === 13)      { e.stopPropagation(); close(true); }
+      if (e.keyCode === KEY.BACK){ e.stopPropagation(); close(false); }
+    };
+  }
+
+  // ── Overlay management ────────────────────────────────────────────────────
+  function openSettings() {
+    Logger.info('settings', 'Settings opened');
+    buildSettings();
+    settingsOverlay.classList.remove('hidden');
+    activeOverlay = 'settings';
+    var first = settingsList.querySelector('.settings-row');
+    if (first) first.focus();
+  }
+
+  function openDebugConsole() {
+    if (!AppConfig.console.enabled) {
+      Logger.warn('debug-console', 'Console disabled in settings');
+      return;
+    }
+    applyDebugStyle();
+    renderDebugLogs();
+    debugOverlay.classList.remove('hidden');
+    debugPanel.setAttribute('tabindex', '0');
+    activeOverlay = 'debug';
+    debugPanel.focus();
+    Logger.info('debug-console', 'Debug console opened');
+  }
+
+  function closeOverlay() {
+    settingsOverlay.classList.add('hidden');
+    debugOverlay.classList.add('hidden');
+    activeOverlay = null;
+    var f = getMainFocusable();
+    if (f.length) f[0].focus();
+  }
+
+  function applyDebugStyle() {
+    var c = AppConfig.console;
+    var p = debugPanel;
+    p.style.width   = c.width  + 'px';
+    p.style.height  = c.height + 'px';
+    p.style.opacity = c.opacity;
+    p.style.top = p.style.bottom = p.style.left = p.style.right = '';
+    if (c.position.indexOf('top')    >= 0) p.style.top    = '60px'; else p.style.bottom = '20px';
+    if (c.position.indexOf('left')   >= 0) p.style.left   = '20px'; else p.style.right  = '20px';
+  }
+
+  // ── Debug log rendering ───────────────────────────────────────────────────
+  function renderDebugLogs() {
+    var entries = Logger.getLogs();
+    var COLORS  = { DEBUG: '#888', INFO: '#4fc', WARN: '#fa0', ERROR: '#f44' };
+    debugLogs.innerHTML = '';
+    var lastCtx = null;
+
+    entries.forEach(function (e) {
+      if (e.context !== lastCtx) {
+        var sep = document.createElement('div');
+        sep.className = 'dl-separator';
+        sep.textContent = '── ' + e.context.toUpperCase() + ' ──';
+        debugLogs.appendChild(sep);
+        lastCtx = e.context;
+      }
+
+      var row = document.createElement('div');
+      row.className = 'dl-row';
+
+      row.innerHTML =
+        '<span class="dl-ts">'  + esc(e.ts.slice(11, 23))   + '</span>' +
+        '<span class="dl-lvl" style="color:' + (COLORS[e.level]||'#fff') + '">' + esc(e.level.padEnd(5)) + '</span>' +
+        '<span class="dl-msg">' + esc(e.message) + '</span>';
+
+      if (e.data) {
+        var d = document.createElement('div');
+        d.className = 'dl-data';
+        try { d.textContent = JSON.stringify(e.data); } catch(x) {}
+        row.appendChild(d);
+      }
+
+      debugLogs.appendChild(row);
+    });
+
+    // stay scrolled to top (newest first)
+    debugLogs.scrollTop = 0;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  function getMainFocusable() {
+    return Array.from(document.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex="0"]'))
+      .filter(function (el) { return !el.closest('.overlay') && el.offsetParent !== null; });
+  }
+
+  function getOverlayFocusable() {
+    var scope = activeOverlay === 'settings' ? settingsOverlay : null;
+    if (!scope) return [];
+    return Array.from(scope.querySelectorAll('.settings-row:not(.hidden), button, input'))
+      .filter(function (el) { return el.offsetParent !== null; });
+  }
+
+  function moveFocus(dir) {
+    var list = activeOverlay === 'settings' ? getOverlayFocusable() : getMainFocusable();
+    if (!list.length) return;
+    var idx = list.indexOf(document.activeElement);
+    idx = dir === 'next' ? (idx + 1) % list.length : (idx - 1 + list.length) % list.length;
+    list[idx].focus();
+    list[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  // ── Global key handler ────────────────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    if (inputDialogOpen) return; // field handles its own keys
+
+    // Yellow — toggle debug console
+    if (e.keyCode === KEY.YELLOW) {
+      e.preventDefault();
+      activeOverlay === 'debug' ? closeOverlay() : (activeOverlay === null ? openDebugConsole() : null);
       return;
     }
 
+    // Back — close overlay or exit app
+    if (e.keyCode === KEY.BACK) {
+      e.preventDefault();
+      if (activeOverlay) { closeOverlay(); return; }
+      tizen.application.getCurrentApplication().exit();
+      return;
+    }
+
+    // Debug console: scroll only
+    if (activeOverlay === 'debug') {
+      if (e.keyCode === KEY.UP)   { e.preventDefault(); debugLogs.scrollTop -= 80; }
+      if (e.keyCode === KEY.DOWN) { e.preventDefault(); debugLogs.scrollTop += 80; }
+      return;
+    }
+
+    if (e.keyCode === KEY.UP   || e.keyCode === KEY.LEFT)  { e.preventDefault(); moveFocus('prev'); }
+    if (e.keyCode === KEY.DOWN || e.keyCode === KEY.RIGHT) { e.preventDefault(); moveFocus('next'); }
+    if (e.keyCode === KEY.ENTER) {
+      if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        document.activeElement.click();
+      }
+    }
+  });
+
+  // ── Network ───────────────────────────────────────────────────────────────
+  function initNetwork() {
+    Logger.begin('network', 'initNetwork');
+    if (typeof webapis === 'undefined' || !webapis.network) {
+      Logger.warn('network', 'webapis.network unavailable');
+      networkTextEl.textContent = 'Net API N/A';
+      Logger.end('network', 'initNetwork');
+      return;
+    }
     try {
       var connected = webapis.network.isConnectedToGateway();
-      var type = webapis.network.getActiveConnectionType();
-      var typeNames = { 0: 'Disconnected', 1: 'WiFi', 2: 'Cellular', 3: 'Ethernet' };
-      log('Network: ' + (typeNames[type] || type) + ' | Gateway: ' + connected);
+      var type      = webapis.network.getActiveConnectionType();
+      var ip        = webapis.network.getIp();
+      var names     = {0:'Disconnected',1:'WiFi',2:'Cellular',3:'Ethernet'};
+      networkTextEl.textContent = (names[type]||'?') + '  ' + ip + '  GW:' + (connected?'✓':'✗');
+      Logger.info('network', 'Network status', { type: names[type], ip: ip, gateway: connected });
 
-      if (!connected) {
-        statusEl.textContent = 'No network connection!';
-        statusEl.style.color = '#f44';
-      }
+      if (!connected) { statusTextEl.textContent = 'No network!'; statusTextEl.style.color = '#f44'; }
 
-      webapis.network.addNetworkStateChangeListener(function (value) {
-        if (value === webapis.network.NetworkState.GATEWAY_DISCONNECTED) {
-          log('Network DISCONNECTED');
-          statusEl.textContent = 'Network disconnected!';
-          statusEl.style.color = '#f44';
-        } else if (value === webapis.network.NetworkState.GATEWAY_CONNECTED) {
-          log('Network CONNECTED');
-          statusEl.textContent = 'App launched successfully.';
-          statusEl.style.color = '';
+      webapis.network.addNetworkStateChangeListener(function (v) {
+        var ns = webapis.network.NetworkState;
+        if (v === ns.GATEWAY_DISCONNECTED) {
+          Logger.warn('network', 'Gateway disconnected');
+          statusTextEl.textContent = 'Network lost!'; statusTextEl.style.color = '#f44';
+        } else if (v === ns.GATEWAY_CONNECTED) {
+          Logger.info('network', 'Gateway connected');
+          statusTextEl.textContent = 'Connected'; statusTextEl.style.color = '';
+          initNetwork();
         }
       });
     } catch (e) {
-      log('Network API error: ' + e.message);
+      Logger.error('network', 'Network API error', { error: e.message });
     }
+    Logger.end('network', 'initNetwork');
   }
 
-  // ─── Logging ───────────────────────────────────────────────────────────────
-  function log(message) {
-    var line = '[TizenYouTube] ' + new Date().toISOString() + ' ' + message;
-    console.log(line);
-    logOutputEl.textContent = (line + '\n' + logOutputEl.textContent).trim();
-  }
-
-  // ─── Init ──────────────────────────────────────────────────────────────────
-  function init() {
-    statusEl.textContent = 'App launched successfully.';
-
-    var app = tizen.application.getCurrentApplication();
-    versionEl.textContent = 'App ID: ' + app.appInfo.id + ' | Version: ' + app.appInfo.version;
-    platformEl.textContent = 'Tizen: ' +
-      tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version') +
-      ' | Web Inspector: chrome://inspect or http://localhost:9998';
-
-    registerKeys();
-    initNavigation();
-    initNetwork();
-
-    document.getElementById('debugBtn').addEventListener('click', function () {
-      log('Manual debug button pressed.');
-    });
-
-    document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
-
-    logEndpointEl.value = localStorage.getItem('tizenYoutubeLogEndpoint') || 'http://192.168.50.133:3030/tv-log';
-    logEndpointEl.addEventListener('change', function () {
-      localStorage.setItem('tizenYoutubeLogEndpoint', logEndpointEl.value.trim());
-    });
-
-    document.getElementById('sendRemoteLogBtn').addEventListener('click', function () {
-      sendRemoteLog('manual-test');
-    });
-
-    log('Initialization complete.');
-    if (logEndpointEl.value.trim()) {
-      sendRemoteLog('startup');
-    }
-  }
-
-  // ─── YouTube API ───────────────────────────────────────────────────────────
+  // ── YouTube ───────────────────────────────────────────────────────────────
   async function fetchPlaylistItems() {
-    var apiKey = document.getElementById('apiKey').value.trim();
+    Logger.begin('youtube', 'fetchPlaylistItems');
+    var apiKey     = AppConfig.youtube.apiKey;
     var playlistId = document.getElementById('playlistId').value.trim();
 
-    if (!apiKey || !playlistId) {
-      apiOutputEl.textContent = 'Please fill in API key and playlist ID first.';
+    if (!apiKey) {
+      apiOutputEl.textContent = 'No API key — set it in ⚙ Settings.';
+      Logger.warn('youtube', 'API key missing');
+      Logger.end('youtube', 'fetchPlaylistItems');
+      return;
+    }
+    if (!playlistId) {
+      apiOutputEl.textContent = 'Enter a playlist ID first.';
+      Logger.warn('youtube', 'Playlist ID missing');
+      Logger.end('youtube', 'fetchPlaylistItems');
       return;
     }
 
-    var params = new URLSearchParams({
-      part: 'snippet,contentDetails,status',
-      playlistId: playlistId,
-      maxResults: '5',
-      key: apiKey
-    });
+    var url = 'https://www.googleapis.com/youtube/v3/playlistItems?' +
+      new URLSearchParams({ part:'snippet,contentDetails,status', playlistId:playlistId, maxResults:'5', key:apiKey });
 
-    var url = 'https://www.googleapis.com/youtube/v3/playlistItems?' + params.toString();
-    log('Requesting YouTube API: ' + url.replace(apiKey, '***'));
-
+    Logger.info('youtube', 'Requesting playlist', { playlistId: playlistId });
     try {
-      var response = await fetch(url);
-      var data = await response.json();
-      if (!response.ok) {
-        throw new Error((data && data.error && data.error.message) || ('HTTP ' + response.status));
-      }
-      var items = (data.items || []).map(function (item, idx) {
-        return (idx + 1) + '. ' + ((item.snippet && item.snippet.title) || '(no title)');
+      var res  = await fetch(url);
+      var data = await res.json();
+      if (!res.ok) throw new Error((data.error && data.error.message) || 'HTTP ' + res.status);
+      var items = (data.items||[]).map(function (it, i) {
+        return (i+1) + '. ' + ((it.snippet && it.snippet.title) || '(no title)');
       });
-      apiOutputEl.textContent = items.length
-        ? 'Fetched ' + items.length + ' item(s):\n' + items.join('\n')
-        : 'Request succeeded but no items found.';
-      log('YouTube request succeeded with ' + items.length + ' item(s).');
-    } catch (error) {
-      apiOutputEl.textContent = 'Request failed: ' + error.message;
-      log('YouTube request failed: ' + error.message);
+      apiOutputEl.textContent = items.length ? 'Fetched ' + items.length + ' items:\n' + items.join('\n') : 'No items found.';
+      Logger.info('youtube', 'Playlist fetched', { count: items.length });
+    } catch (err) {
+      apiOutputEl.textContent = 'Error: ' + err.message;
+      Logger.error('youtube', 'Playlist fetch failed', { error: err.message });
     }
+    Logger.end('youtube', 'fetchPlaylistItems');
   }
 
-  // ─── Remote log ───────────────────────────────────────────────────────────
-  async function sendRemoteLog(eventType) {
-    var endpoint = logEndpointEl.value.trim();
-    if (!endpoint) {
-      log('Remote log endpoint is empty.');
-      return;
-    }
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
+    Logger.begin('main', 'init');
+    statusTextEl.textContent = 'Running';
 
-    var payload = {
-      app: 'TizenYouTube',
-      ts: new Date().toISOString(),
-      eventType: eventType || 'manual-test',
-      message: 'Remote log event from TV app',
-      startupTime: performance.now()
-    };
+    var app = tizen.application.getCurrentApplication();
+    versionTextEl.textContent = app.appInfo.id + '  v' + app.appInfo.version;
+    Logger.info('main', 'App started', {
+      id: app.appInfo.id,
+      version: app.appInfo.version,
+      platform: tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version')
+    });
 
-    try {
-      var res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      log('Remote log sent to ' + endpoint);
-    } catch (error) {
-      log('Remote log FAILED: ' + error.message + ' | endpoint: ' + endpoint);
-    }
+    registerKeys();
+    initNetwork();
+
+    // Update debug console live if open
+    Logger.onLog(function () { if (activeOverlay === 'debug') renderDebugLogs(); });
+
+    gearBtn.addEventListener('click', openSettings);
+    document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
+
+    var f = getMainFocusable();
+    if (f.length) f[0].focus();
+
+    Logger.end('main', 'init');
   }
 
   window.addEventListener('load', init);
