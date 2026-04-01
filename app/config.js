@@ -20,6 +20,11 @@
       apiKey: '',
       clientId: '',
       clientSecret: ''
+    },
+    runtimePatch: {
+      enabled: true,
+      serviceAppId: '',
+      fallbackToDirectNavigation: true
     }
   };
 

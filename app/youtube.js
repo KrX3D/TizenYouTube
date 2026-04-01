@@ -19,6 +19,7 @@
     'injections/fetchInterceptor.js',
     'injections/jsonTap.js',
     'injections/adblock.js',
+    'injections/ui/nativeSettingsPatch.js',
     'injections/ui/settings.js',
     'injections/ui/customYTSettings.js'
   ];
@@ -88,14 +89,33 @@
         Logger.warn('youtube', 'Could not store injection scripts', { error: e.message });
       }
 
-      Logger.info('youtube', 'Navigating to YouTube TV');
+      var useRuntimePatch = !!(window.AppConfig && window.AppConfig.runtimePatch && window.AppConfig.runtimePatch.enabled);
+      if (useRuntimePatch && window.RuntimePatchContracts && window.RuntimePatchBridge) {
+        var payload = window.RuntimePatchContracts.createLaunchPayload(window.AppConfig);
+        Logger.info('youtube', 'Trying runtime patch launch handoff', payload);
+        window.RuntimePatchBridge.launchPatchedYouTube(payload, function (err, result) {
+          if (!err) {
+            Logger.info('youtube', 'Runtime patch handoff success', result || {});
+            Logger.end('youtube', 'launch');
+            return;
+          }
+          Logger.error('youtube', 'Runtime patch handoff failed', { error: err.message || String(err) });
+          var fallback = !!(window.AppConfig.runtimePatch && window.AppConfig.runtimePatch.fallbackToDirectNavigation);
+          if (!fallback) {
+            Logger.end('youtube', 'launch');
+            return;
+          }
+          Logger.warn('youtube', 'Fallback to direct navigation', {});
+          Logger.end('youtube', 'launch');
+          window.location.href = 'https://www.youtube.com/tv';
+        });
+        return;
+      }
+
       Logger.warn('youtube', 'Direct navigation mode active', {
-        note: 'Native YouTube settings menu patching is not available in this mode without a full runtime patch strategy.'
+        note: 'Runtime patch bridge disabled or unavailable'
       });
       Logger.end('youtube', 'launch');
-
-      // Navigate — this replaces the app context with youtube.com/tv
-      // The user can return to the app via the remote Back button
       window.location.href = 'https://www.youtube.com/tv';
     });
   }

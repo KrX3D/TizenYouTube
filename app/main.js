@@ -3,6 +3,7 @@
   var versionTextEl   = document.getElementById('versionText');
   var networkTextEl   = document.getElementById('networkText');
   var gearBtn         = document.getElementById('gearBtn');
+  var debugBtn        = document.getElementById('debugBtn');
   var playlistBtn     = document.getElementById('playlistBtn');
   var settingsOverlay = document.getElementById('settingsOverlay');
   var playlistOverlay = document.getElementById('playlistOverlay');
@@ -129,6 +130,17 @@
         var t = Auth.getToken();
         showToast(t ? (Auth.isValid() ? '✓ Signed in and valid' : '⚠ Token needs refresh') : '✗ Not signed in');
       }},
+
+    { section: 'Runtime Patch Mode' },
+    { id: 'runtimePatch.enabled', label: 'Enable service runtime patch', type: 'bool',
+      get: function () { return !!AppConfig.runtimePatch.enabled; },
+      set: function (v) { AppConfig.runtimePatch.enabled = !!v; } },
+    { id: 'runtimePatch.serviceAppId', label: 'Service app id', type: 'string',
+      get: function () { return AppConfig.runtimePatch.serviceAppId || ''; },
+      set: function (v) { AppConfig.runtimePatch.serviceAppId = v; } },
+    { id: 'runtimePatch.fallback', label: 'Fallback to direct nav', type: 'bool',
+      get: function () { return !!AppConfig.runtimePatch.fallbackToDirectNavigation; },
+      set: function (v) { AppConfig.runtimePatch.fallbackToDirectNavigation = !!v; } },
 
     { section: 'Diagnostics' },
     { id: 'action.yellowTest',    label: '🟡 Yellow key code',     type: 'action',
@@ -341,7 +353,8 @@
     if (inputDialogOpen) return;
 
     var isYellow = (e.keyCode === KEY.YELLOW || e.keyCode === 405 || e.key === 'ColorF2Yellow');
-    var isDebugFallback = (e.keyCode === KEY.RED || e.keyCode === 403 || e.key === 'ColorF0Red');
+    var isDebugFallback = (e.keyCode === KEY.RED || e.keyCode === 403 || e.key === 'ColorF0Red' ||
+      e.keyCode === KEY.GREEN || e.keyCode === 404 || e.key === 'ColorF1Green');
     if (isYellow) {
       e.preventDefault();
       Logger.info('debug-console', 'Yellow key pressed', { keyCode: e.keyCode, key: e.key });
@@ -443,6 +456,7 @@
     Logger.onLog(function () { if (activeOverlay === 'debug') renderDebugLogs(); });
 
     gearBtn.addEventListener('click', openSettings);
+    if (debugBtn) debugBtn.addEventListener('click', openDebugConsole);
     playlistBtn.addEventListener('click', openPlaylist);
 
     document.getElementById('fetchBtn').addEventListener('click', fetchPlaylistItems);
