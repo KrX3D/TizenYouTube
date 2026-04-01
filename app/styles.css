@@ -53,7 +53,6 @@ body {
 
 label { display: block; margin: 10px 0; font-size: 19px; }
 
-/* Inline input + button row */
 .input-row {
   display: flex;
   align-items: center;
@@ -93,30 +92,29 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
 #gearBtn:focus      { border-color: #f0c040; background: #28283c; }
 
 /* ── Overlay base ──────────────────────────────────────── */
+/* No padding, no centering — each overlay positions its own panel */
 .overlay {
-  position: fixed; inset: 0;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
   z-index: 100;
   background: rgba(0,0,0,0.72);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 20px;
-  overflow-y: auto;
 }
 .overlay.hidden { display: none; }
 
 /* ── Settings panel ────────────────────────────────────── */
+/* Positioned from top-left corner, full height scrollable */
 .settings-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 880px;
-  max-height: calc(100vh - 40px);
+  height: 100%;
   background: #16162a;
-  border: 1px solid #2e2e50;
-  border-radius: 14px;
+  border-right: 1px solid #2e2e50;
   padding: 28px 32px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
 }
 .settings-panel h2 { margin: 0 0 18px; color: #f0c040; font-size: 26px; flex-shrink: 0; }
 
@@ -152,10 +150,6 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
 /* ── Debug console overlay ─────────────────────────────── */
 .debug-overlay {
   background: rgba(0,0,0,0.45);
-  align-items: unset;
-  justify-content: unset;
-  padding-top: 0;
-  overflow-y: unset;
 }
 
 .debug-panel {
@@ -212,12 +206,14 @@ input:focus         { border-color: #f0c040; background: #1c1c2e; }
 
 /* ── Input dialog ──────────────────────────────────────── */
 .input-dialog-panel {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
   width: 640px;
   background: #16162a;
   border: 1px solid #3a3a5a;
   border-radius: 12px;
   padding: 28px;
-  flex-shrink: 0;
 }
 .input-dialog-label { margin: 0 0 14px; color: #9090c8; font-size: 20px; }
 .input-dialog-btns { display: flex; gap: 12px; margin-top: 16px; }

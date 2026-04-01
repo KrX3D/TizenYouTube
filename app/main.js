@@ -28,17 +28,29 @@
       supported.forEach(function (k) {
         if (toRegister.indexOf(k.name) >= 0) {
           tizen.tvinputdevice.registerKey(k.name);
-          // Update KEY map from actual key code reported by the TV
-          if (k.name === 'ColorF2Yellow') KEY.YELLOW = k.code;
-          if (k.name === 'ColorF0Red')    KEY.RED    = k.code;
-          if (k.name === 'ColorF1Green')  KEY.GREEN  = k.code;
-          if (k.name === 'ColorF3Blue')   KEY.BLUE   = k.code;
+          // k.code can be a string on some firmware — force to number
+          var code = parseInt(k.code, 10);
+          if (k.name === 'ColorF2Yellow') KEY.YELLOW = code;
+          if (k.name === 'ColorF0Red')    KEY.RED    = code;
+          if (k.name === 'ColorF1Green')  KEY.GREEN  = code;
+          if (k.name === 'ColorF3Blue')   KEY.BLUE   = code;
         }
       });
-      Logger.info('main', 'Keys registered', { yellow: KEY.YELLOW });
+      Logger.info('main', 'Keys registered', {
+        red: KEY.RED, green: KEY.GREEN, yellow: KEY.YELLOW, blue: KEY.BLUE
+      });
     } catch (e) {
       Logger.warn('main', 'Key registration failed', { error: e.message });
     }
+
+    // Add a catch-all to log any unrecognised key so we can see the real code
+    document.addEventListener('keydown', function (e) {
+      var known = [KEY.UP, KEY.DOWN, KEY.LEFT, KEY.RIGHT,
+                   KEY.ENTER, KEY.BACK, KEY.YELLOW, KEY.RED, KEY.GREEN, KEY.BLUE];
+      if (known.indexOf(e.keyCode) === -1) {
+        Logger.debug('main', 'Unknown key pressed', { keyCode: e.keyCode });
+      }
+    }, true); // capture phase so it fires before other handlers
   }
 
   // ── Readonly inputs: keyboard only opens on Enter ─────────────────────────
