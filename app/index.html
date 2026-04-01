@@ -13,20 +13,38 @@
     <span id="statusText">Initializing…</span>
     <span id="versionText"></span>
     <span id="networkText"></span>
-    <button id="gearBtn" class="gear-btn">⚙ Settings</button>
+    <button id="gearBtn">⚙ Settings</button>
   </header>
 
   <!-- ── Main content ──────────────────────────────────── -->
   <main class="container">
+
+    <!-- YouTube video player -->
+    <section class="player-card">
+      <h2>▶ Player</h2>
+      <div id="playerContainer">
+        <div class="player-placeholder">Enter a video ID or URL below to play</div>
+      </div>
+      <div class="player-controls">
+        <input id="videoInput" type="text" readonly placeholder="Video ID or URL — press Enter to edit" />
+        <button id="playBtn">▶ Play</button>
+        <button id="stopBtn">■ Stop</button>
+      </div>
+    </section>
+
+    <!-- YouTube API / playlist test -->
     <section class="card">
-      <h2>YouTube API test</h2>
-      <p>Set your API key in <strong>⚙ Settings</strong> first.</p>
+      <h2>Playlist lookup</h2>
+      <p>API key set in <strong>⚙ Settings</strong>.</p>
       <label>Playlist ID
-        <input id="playlistId" type="text" placeholder="PL…" />
+        <div class="input-row">
+          <input id="playlistId" type="text" readonly placeholder="PL… — press Enter to edit" />
+          <button id="fetchBtn">Fetch 5 items</button>
+        </div>
       </label>
-      <button id="fetchBtn">Fetch first 5 items</button>
       <pre id="apiOutput">No request sent yet.</pre>
     </section>
+
   </main>
 
   <!-- ── Settings overlay ──────────────────────────────── -->
@@ -34,7 +52,7 @@
     <div class="settings-panel">
       <h2>⚙ Settings</h2>
       <div id="settingsList" class="settings-list"></div>
-      <p class="hint">↑↓ navigate · Enter / → toggle · ← cycle back · Back/Esc close</p>
+      <p class="hint">↑↓ navigate · Enter toggle/edit · ← cycle back · Back close</p>
     </div>
   </div>
 
@@ -49,8 +67,8 @@
     </div>
   </div>
 
-  <!-- ── Input dialog (used by settings) ───────────────── -->
-  <div id="inputDialog" class="overlay hidden input-dialog-overlay">
+  <!-- ── Input dialog ──────────────────────────────────── -->
+  <div id="inputDialog" class="overlay hidden">
     <div class="input-dialog-panel">
       <p id="inputDialogLabel" class="input-dialog-label"></p>
       <input id="inputDialogField" type="text" />
@@ -64,6 +82,8 @@
   <script type="text/javascript" src="$WEBAPIS/webapis/webapis.js"></script>
   <script src="config.js"></script>
   <script src="logger.js"></script>
+  <script src="auth.js"></script>
+  <script src="player.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

@@ -17,7 +17,9 @@
       opacity: 0.93
     },
     youtube: {
-      apiKey: ''
+      apiKey: '',
+      clientId: '',
+      clientSecret: ''
     }
   };
 
