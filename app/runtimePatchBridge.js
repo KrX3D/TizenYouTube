@@ -5,10 +5,10 @@
 
   function getServiceAppId() {
     var cfg = window.AppConfig && window.AppConfig.runtimePatch;
-    return (cfg && cfg.serviceAppId) || '';
+    return (cfg && cfg.serviceAppId) || 'krx3dYtV01.RuntimePatchService';
   }
 
-  function launchWithService(payload, cb) {
+  function requestService(payload, cb) {
     if (!hasTizen()) {
       cb(new Error('Tizen application APIs unavailable'));
       return;
@@ -22,7 +22,7 @@
 
     try {
       var appControl = new tizen.ApplicationControl(
-        'http://tizen.org/appcontrol/operation/view',
+        'http://tizen.org/appcontrol/operation/service',
         null,
         null,
         null,
@@ -47,7 +47,14 @@
       return hasTizen() && !!getServiceAppId();
     },
     launchPatchedYouTube: function (payload, cb) {
-      launchWithService(payload, cb || function () {});
+      requestService(payload, cb || function () {});
+    },
+    installFromGitHub: function (repo, cb) {
+      requestService({
+        contractVersion: 1,
+        action: 'installFromGitHub',
+        repo: repo
+      }, cb || function () {});
     }
   };
 })();

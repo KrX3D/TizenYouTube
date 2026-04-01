@@ -22,8 +22,8 @@
       clientSecret: ''
     },
     runtimePatch: {
-      enabled: false,
-      serviceAppId: '',
+      enabled: true,
+      serviceAppId: 'krx3dYtV01.RuntimePatchService',
       fallbackToDirectNavigation: false
     }
   };
@@ -49,9 +49,8 @@
     } catch (e) {
       cfg = deepMerge(defaults, {});
     }
-    if (cfg.runtimePatch && cfg.runtimePatch.enabled && !cfg.runtimePatch.serviceAppId) {
-      cfg.runtimePatch.enabled = false;
-      cfg.runtimePatch.fallbackToDirectNavigation = false;
+    if (cfg.runtimePatch && !cfg.runtimePatch.serviceAppId) {
+      cfg.runtimePatch.serviceAppId = 'krx3dYtV01.RuntimePatchService';
     }
     return cfg;
   }

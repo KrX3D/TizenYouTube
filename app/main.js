@@ -150,6 +150,8 @@
     { section: 'Actions' },
     { id: 'action.checkUpdate',   label: '↻ Check updates',       type: 'action',
       action: function () { checkForUpdates(); } },
+    { id: 'action.installLatest', label: '⬇ Install latest (GitHub)', type: 'action',
+      action: function () { installLatestFromGitHub(); } },
     { id: 'action.reset',         label: '✗ Reset defaults',      type: 'action',
       action: function () { AppConfig.reset(); location.reload(); }}
   ];
@@ -201,6 +203,23 @@
       Logger.error('update', 'Update check failed', { error: e.message });
       showToast('Update check failed: ' + e.message);
     }
+  }
+
+  function installLatestFromGitHub() {
+    var repo = 'KrX3D/TizenYouTube';
+    if (!window.RuntimePatchBridge || !window.RuntimePatchBridge.installFromGitHub) {
+      showToast('Runtime service bridge unavailable');
+      return;
+    }
+    Logger.info('update', 'Request install from GitHub', { repo: repo });
+    window.RuntimePatchBridge.installFromGitHub(repo, function (err) {
+      if (err) {
+        Logger.error('update', 'Install from GitHub failed', { error: err.message || String(err) });
+        showToast('Install request failed: ' + (err.message || String(err)));
+        return;
+      }
+      showToast('Installer service request sent');
+    });
   }
 
   // ── Build settings ────────────────────────────────────────────────────────

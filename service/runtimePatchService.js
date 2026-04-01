@@ -62,7 +62,35 @@
     }
   }
 
+  async function installFromGitHub(repo) {
+    var targetRepo = repo || 'KrX3D/TizenYouTube';
+    try {
+      var res = await fetch('https://api.github.com/repos/' + targetRepo + '/releases/latest');
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.message || ('HTTP ' + res.status));
+      var assets = Array.isArray(data.assets) ? data.assets : [];
+      var asset = assets.find(function (a) { return a && a.browser_download_url && /\.wgt$/i.test(a.name || ''); });
+      if (!asset) throw new Error('No .wgt asset in latest release');
+      var appControl = new tizen.ApplicationControl(
+        'http://tizen.org/appcontrol/operation/view',
+        asset.browser_download_url
+      );
+      tizen.application.launchAppControl(
+        appControl,
+        null,
+        function () { console.log('[TYT service] Opened WGT download URL', asset.browser_download_url); },
+        function (e) { console.error('[TYT service] Failed to open WGT URL', e); }
+      );
+    } catch (e) {
+      console.error('[TYT service] installFromGitHub failed', e);
+    }
+  }
+
   var payload = getLaunchPayload();
   console.log('[TYT service] Runtime patch service invoked', payload || {});
-  launchYouTubeTarget(payload);
+  if (payload && payload.action === 'installFromGitHub') {
+    installFromGitHub(payload.repo);
+  } else {
+    launchYouTubeTarget(payload);
+  }
 })();
