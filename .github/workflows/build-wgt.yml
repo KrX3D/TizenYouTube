@@ -77,48 +77,37 @@ jobs:
 
       - name: Sync app version from release tag
         if: env.release_version != ''
-        env:
-          RELEASE_VERSION: ${{ env.release_version }}
         run: |
-          APP_VERSION="${RELEASE_VERSION#v}"
-          python3 -c "
-import json, re
-from pathlib import Path
+          APP_VERSION="${{ env.release_version }}"
+          APP_VERSION="${APP_VERSION#v}"
 
-app_version = '${APP_VERSION}'
+          # Patch only the first version="..." in config.xml using sed.
+          # Deliberately NOT using xml.etree.ElementTree — it remaps tizen: to ns1:
+          # which breaks TizenBrewInstaller's config.xml parser.
+          sed -i "0,/version=\"[^\"]*\"/s/version=\"[^\"]*\"/version=\"${APP_VERSION}\"/" app/config.xml
 
-# config.xml: raw regex replace on the version attribute only.
-# Do NOT use xml.etree.ElementTree — it remaps tizen: prefix to ns1:
-# which breaks tizenjs and TizenBrewInstaller's config.xml parser.
-config_path = Path('app/config.xml')
-content = config_path.read_text(encoding='utf-8')
-content = re.sub(r'(?<=version=\")[^\"]+(?=\")', app_version, content, count=1)
-config_path.write_text(content, encoding='utf-8')
-
-# package.json: safe to use json module
-pkg_path = Path('app/package.json')
-pkg = json.loads(pkg_path.read_text(encoding='utf-8'))
-pkg['version'] = app_version
-pkg_path.write_text(json.dumps(pkg, indent=2) + '\n', encoding='utf-8')
-
-print(f'Synchronized app/config.xml and app/package.json to version {app_version}')
-"
+          # package.json is plain JSON, safe to patch with node
+          node -e "
+            const fs = require('fs');
+            const p = 'app/package.json';
+            const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+            pkg.version = '${APP_VERSION}';
+            fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');
+            console.log('package.json version set to ${APP_VERSION}');
+          "
+          echo "Synchronized app/config.xml and app/package.json to version ${APP_VERSION}"
 
       - name: Validate app version consistency
         run: |
-          python3 -c "
-import json, re
-from pathlib import Path
+          CONFIG_VER=$(grep -oP '(?<=version=")[^"]+' app/config.xml | head -1)
+          PKG_VER=$(node -e "process.stdout.write(require('./app/package.json').version)")
 
-pkg_version = json.loads(Path('app/package.json').read_text(encoding='utf-8')).get('version', '')
-content = Path('app/config.xml').read_text(encoding='utf-8')
-m = re.search(r'version=\"([^\"]+)\"', content)
-config_version = m.group(1) if m else ''
+          echo "config.xml version : ${CONFIG_VER}"
+          echo "package.json version: ${PKG_VER}"
 
-assert re.match(r'^\d+\.\d+\.\d+$', config_version), f'Invalid config.xml version format: {config_version}'
-assert pkg_version == config_version, f'Version mismatch: package.json={pkg_version}, config.xml={config_version}'
-print(f'Version consistency OK: {config_version}')
-"
+          [[ "$CONFIG_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid config.xml version format: ${CONFIG_VER}"; exit 1; }
+          [ "$CONFIG_VER" = "$PKG_VER" ] || { echo "Version mismatch: config.xml=${CONFIG_VER} package.json=${PKG_VER}"; exit 1; }
+          echo "Version consistency OK: ${CONFIG_VER}"
 
       - name: Install tooling
         run: |
@@ -146,15 +135,7 @@ print(f'Version consistency OK: {config_version}')
           echo "$AUTHOR_P12_B64" | base64 -d > "${GITHUB_WORKSPACE}/tizen-data/keystore/author/author.p12"
 
           cp .github/assets/profiles.xml "${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
-          python3 -c "
-from pathlib import Path
-import os
-from xml.sax.saxutils import escape
-p = Path(os.environ['GITHUB_WORKSPACE']) / 'tizen-data/profile/profiles.xml'
-t = p.read_text()
-t = t.replace('\$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('\$KEY_PW', escape(os.environ['AUTHOR_P12_PASSWORD'], {'\"': '&quot;'}))
-p.write_text(t)
-"
+          python3 -c "from pathlib import Path; import os; from xml.sax.saxutils import escape; p=Path(os.environ['GITHUB_WORKSPACE'])/'tizen-data/profile/profiles.xml'; t=p.read_text(); t=t.replace('\$GITHUB_WORKSPACE', os.environ['GITHUB_WORKSPACE']).replace('\$KEY_PW', escape(os.environ['AUTHOR_P12_PASSWORD'], {'\"':'&quot;'})); p.write_text(t)"
 
           tizen cli-config "profiles.path=${GITHUB_WORKSPACE}/tizen-data/profile/profiles.xml"
 
