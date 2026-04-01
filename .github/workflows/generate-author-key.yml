@@ -3,6 +3,9 @@ name: Generate Tizen Author Key
 on:
   workflow_dispatch:
     inputs:
+      cert_password:
+        description: 'Password for generated author.p12 (not printed to logs)'
+        required: true
       common_name:
         description: 'Certificate common name'
         required: false
@@ -12,12 +15,22 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Generate random password (not printed)
+      - name: Prepare password file (no stdout)
         run: |
           mkdir -p out
-          PW=$(openssl rand -base64 24 | tr -d '\n')
-          echo "CERT_PASSWORD=$PW" >> "$GITHUB_ENV"
-          printf '%s' "$PW" > out/TIZEN_AUTHOR_KEY_PW.txt
+          python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+with open(os.environ['GITHUB_EVENT_PATH'], 'r', encoding='utf-8') as f:
+    event = json.load(f)
+password = event.get('inputs', {}).get('cert_password', '')
+if not password:
+    raise SystemExit('cert_password input is empty')
+Path('out/.cert_password').write_text(password, encoding='utf-8')
+Path('out/TIZEN_AUTHOR_KEY_PW.txt').write_text(password, encoding='utf-8')
+PY
 
       - name: Generate author certificate and PKCS#12
         run: |
@@ -29,11 +42,12 @@ jobs:
             -in out/author.crt \
             -name "tizen-author" \
             -out out/author.p12 \
-            -passout env:CERT_PASSWORD
+            -passout file:out/.cert_password
 
       - name: Create base64 for GitHub secret
         run: |
           base64 -w 0 out/author.p12 > out/TIZEN_AUTHOR_KEY_B64.txt
+          rm -f out/.cert_password
 
       - name: Upload generated key artifact
         uses: actions/upload-artifact@v5
