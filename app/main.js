@@ -435,10 +435,11 @@
     if (launchBtn) {
       launchBtn.addEventListener('click', function () {
         Logger.info('main','Launching YouTube TV');
-        // Store injection scripts then navigate
         if (window.YouTubeTV) {
+          Logger.info('main', 'YouTubeTV launcher available');
           window.YouTubeTV.launch();
         } else {
+          Logger.warn('main', 'YouTubeTV launcher missing, fallback navigation used');
           window.location.href = 'https://www.youtube.com/tv';
         }
       });
