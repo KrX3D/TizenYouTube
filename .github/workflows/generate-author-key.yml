@@ -18,20 +18,7 @@ jobs:
       - name: Prepare password file (no stdout)
         run: |
           mkdir -p out
-          python3 - <<'PY'
-import json
-import os
-from pathlib import Path
-
-with open(os.environ['GITHUB_EVENT_PATH'], 'r', encoding='utf-8') as f:
-    event = json.load(f)
-password = event.get('inputs', {}).get('cert_password', '')
-if not password:
-    raise SystemExit('cert_password input is empty')
-Path('out/.cert_password').write_text(password, encoding='utf-8')
-Path('out/TIZEN_AUTHOR_KEY_PW.txt').write_text(password, encoding='utf-8')
-PY
-
+          python3 -c "import json, os; from pathlib import Path; event=json.load(open(os.environ['GITHUB_EVENT_PATH'], encoding='utf-8')); password=event.get('inputs', {}).get('cert_password', ''); raise SystemExit('cert_password input is empty') if not password else None; Path('out/.cert_password').write_text(password, encoding='utf-8'); Path('out/TIZEN_AUTHOR_KEY_PW.txt').write_text(password, encoding='utf-8')"
       - name: Generate author certificate and PKCS#12
         run: |
           openssl genrsa -out out/author.key 2048
