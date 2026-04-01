@@ -131,17 +131,6 @@
         showToast(t ? (Auth.isValid() ? '✓ Signed in and valid' : '⚠ Token needs refresh') : '✗ Not signed in');
       }},
 
-    { section: 'Runtime Patch Mode' },
-    { id: 'runtimePatch.enabled', label: 'Enable service runtime patch', type: 'bool',
-      get: function () { return !!AppConfig.runtimePatch.enabled; },
-      set: function (v) { AppConfig.runtimePatch.enabled = !!v; } },
-    { id: 'runtimePatch.serviceAppId', label: 'Service app id', type: 'string',
-      get: function () { return AppConfig.runtimePatch.serviceAppId || ''; },
-      set: function (v) { AppConfig.runtimePatch.serviceAppId = v; } },
-    { id: 'runtimePatch.fallback', label: 'Fallback to direct nav', type: 'bool',
-      get: function () { return !!AppConfig.runtimePatch.fallbackToDirectNavigation; },
-      set: function (v) { AppConfig.runtimePatch.fallbackToDirectNavigation = !!v; } },
-
     { section: 'Diagnostics' },
     { id: 'action.yellowTest',    label: '🟡 Yellow key code',     type: 'action',
       action: function () {
@@ -156,8 +145,8 @@
       }},
 
     { section: 'Actions' },
-    { id: 'action.save',          label: '✓ Save & close',        type: 'action',
-      action: function () { AppConfig.save(); Logger.info('settings','Saved'); closeOverlay(); }},
+    { id: 'action.checkUpdate',   label: '↻ Check updates',       type: 'action',
+      action: function () { checkForUpdates(); } },
     { id: 'action.reset',         label: '✗ Reset defaults',      type: 'action',
       action: function () { AppConfig.reset(); location.reload(); }}
   ];
@@ -170,6 +159,41 @@
     document.body.appendChild(t);
     setTimeout(function () { t.style.transition = 'opacity 0.5s'; t.style.opacity = '0'; }, 2200);
     setTimeout(function () { t.remove(); }, 2800);
+  }
+
+  function compareSemver(a, b) {
+    var pa = String(a || '0.0.0').split('.').map(function (x) { return parseInt(x, 10) || 0; });
+    var pb = String(b || '0.0.0').split('.').map(function (x) { return parseInt(x, 10) || 0; });
+    for (var i = 0; i < 3; i += 1) {
+      if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+      if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+    }
+    return 0;
+  }
+
+  async function checkForUpdates() {
+    var owner = 'KrX3D';
+    var repo = 'TizenYouTube';
+    var app = tizen.application.getCurrentApplication();
+    var current = app.appInfo.version;
+    Logger.info('update', 'Checking for updates', { current: current });
+    try {
+      var res = await fetch('https://api.github.com/repos/' + owner + '/' + repo + '/releases/latest');
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.message || ('HTTP ' + res.status));
+      var latestTag = String(data.tag_name || '').replace(/^v/, '');
+      if (!latestTag) throw new Error('No tag_name in release payload');
+      if (compareSemver(latestTag, current) > 0) {
+        showToast('Update available: v' + latestTag + ' (current v' + current + ')');
+        Logger.info('update', 'Update available', { latest: latestTag, current: current, url: data.html_url });
+      } else {
+        showToast('Already on latest version: v' + current);
+        Logger.info('update', 'Already latest', { latest: latestTag, current: current });
+      }
+    } catch (e) {
+      Logger.error('update', 'Update check failed', { error: e.message });
+      showToast('Update check failed: ' + e.message);
+    }
   }
 
   // ── Build settings ────────────────────────────────────────────────────────
