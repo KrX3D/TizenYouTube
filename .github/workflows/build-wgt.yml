@@ -81,59 +81,11 @@ jobs:
           RELEASE_VERSION: ${{ env.release_version }}
         run: |
           APP_VERSION="${RELEASE_VERSION#v}"
-          export APP_VERSION
-          python3 - <<'PY'
-import json
-import os
-import re
-
-app_version = os.environ["APP_VERSION"]
-
-config_path = "app/config.xml"
-with open(config_path, "r", encoding="utf-8") as f:
-    config_content = f.read()
-
-config_content, count = re.subn(r'version=\"[0-9]+\\.[0-9]+\\.[0-9]+\"', f'version=\"{app_version}\"', config_content, count=1)
-if count != 1:
-    raise SystemExit("Failed to update version attribute in app/config.xml")
-
-with open(config_path, "w", encoding="utf-8") as f:
-    f.write(config_content)
-
-package_json_path = "app/package.json"
-with open(package_json_path, "r", encoding="utf-8") as f:
-    package_json = json.load(f)
-package_json["version"] = app_version
-with open(package_json_path, "w", encoding="utf-8") as f:
-    json.dump(package_json, f, indent=2)
-    f.write("\n")
-
-print(f"Synchronized app/config.xml and app/package.json to version {app_version}")
-PY
+          python3 -c "import json,re; from pathlib import Path; app_version='${APP_VERSION}'; config_path=Path('app/config.xml'); config_content=config_path.read_text(encoding='utf-8'); config_content,count=re.subn(r'version=\\\"[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\"', f'version=\\\"{app_version}\\\"', config_content, count=1); assert count==1, 'Failed to update version attribute in app/config.xml'; config_path.write_text(config_content, encoding='utf-8'); package_json_path=Path('app/package.json'); package_json=json.loads(package_json_path.read_text(encoding='utf-8')); package_json['version']=app_version; package_json_path.write_text(json.dumps(package_json, indent=2) + '\\n', encoding='utf-8'); print(f'Synchronized app/config.xml and app/package.json to version {app_version}')"
 
       - name: Validate app version consistency
         run: |
-          python3 - <<'PY'
-import json
-import re
-import xml.etree.ElementTree as ET
-
-with open("app/package.json", "r", encoding="utf-8") as f:
-    package_json = json.load(f)
-package_version = package_json.get("version", "")
-
-root = ET.parse("app/config.xml").getroot()
-config_version = root.attrib.get("version", "")
-
-if not re.match(r"^\d+\.\d+\.\d+$", config_version):
-    raise SystemExit(f"Invalid config.xml version format: {config_version}")
-if package_version != config_version:
-    raise SystemExit(
-        f"Version mismatch: app/package.json={package_version}, app/config.xml={config_version}"
-    )
-
-print(f"Version consistency OK: {config_version}")
-PY
+          python3 -c "import json,re,xml.etree.ElementTree as ET; package_version=json.loads(open('app/package.json', 'r', encoding='utf-8').read()).get('version', ''); config_version=ET.parse('app/config.xml').getroot().attrib.get('version', ''); assert re.match(r'^\\d+\\.\\d+\\.\\d+$', config_version), f'Invalid config.xml version format: {config_version}'; assert package_version==config_version, f'Version mismatch: app/package.json={package_version}, app/config.xml={config_version}'; print(f'Version consistency OK: {config_version}')"
 
       - name: Install tooling
         run: |
