@@ -1,7 +1,9 @@
 'use strict';
 
 var adb = require('./adb');
-var WebSocket = require('ws');
+// ws v7 CommonJS export
+var WSLib = require('ws');
+var WebSocket = (typeof WSLib === 'function') ? WSLib : WSLib.WebSocket || WSLib;
 
 var TAG = '[TYT-CDP]';
 function log(level, msg, data) {
@@ -10,11 +12,11 @@ function log(level, msg, data) {
 
 function cdpConnect(port) {
   return new Promise(function (resolve, reject) {
-    // CDP WebSocket is directly at ws://host:port — NOT /json
+    // CDP WebSocket — direct port connection, no /json path
     var ws   = new WebSocket('ws://127.0.0.1:' + port);
     var done = false;
     var timer = setTimeout(function () {
-      if (!done) { done = true; try { ws.close(); } catch (_) {} reject(new Error('CDP connect timeout')); }
+      if (!done) { done = true; try { ws.close(); } catch (_) {} reject(new Error('CDP connect timeout port ' + port)); }
     }, 10000);
 
     ws.on('open', function () {
@@ -28,14 +30,13 @@ function cdpConnect(port) {
 
 function cdpSend(ws, id, method, params) {
   return new Promise(function (resolve, reject) {
-    var timer = setTimeout(function () { reject(new Error('CDP response timeout: ' + method)); }, 10000);
-
+    var timer = setTimeout(function () { reject(new Error('CDP timeout: ' + method)); }, 10000);
     function onMsg(raw) {
       var msg; try { msg = JSON.parse(raw); } catch (_) { return; }
       if (msg.id === id) {
         clearTimeout(timer);
         ws.removeListener('message', onMsg);
-        if (msg.error) reject(new Error(method + ' error: ' + JSON.stringify(msg.error)));
+        if (msg.error) reject(new Error(method + ' CDP error: ' + JSON.stringify(msg.error)));
         else resolve(msg.result);
       }
     }
@@ -48,9 +49,9 @@ async function inject(appId, scriptCode, onProgress) {
   onProgress = onProgress || function () {};
   log('INFO', 'inject start', { appId: appId, bytes: scriptCode.length });
 
-  onProgress('Getting debug port via ADB…');
+  onProgress('Getting debug port via SDB…');
   var port = await adb.getDebugPort(appId);
-  log('INFO', 'Got debug port', { port: port });
+  log('INFO', 'Got port', { port: port });
 
   onProgress('Connecting to CDP on port ' + port + '…');
   var ws = await cdpConnect(port);
@@ -59,42 +60,43 @@ async function inject(appId, scriptCode, onProgress) {
   try {
     onProgress('Enabling Page domain…');
     await cdpSend(ws, 1, 'Page.enable');
+    log('INFO', 'Page domain enabled');
 
-    // Try addScriptToEvaluateOnNewDocument first (Tizen 6+)
-    // Fall back to script element injection (TizenBrew's approach for older firmware)
-    onProgress('Registering injection script…');
+    onProgress('Registering script for document-start…');
     var injected = false;
 
     try {
       var result = await cdpSend(ws, 2, 'Page.addScriptToEvaluateOnNewDocument', { source: scriptCode });
-      log('INFO', 'addScriptToEvaluateOnNewDocument succeeded', { id: result && result.identifier });
-      onProgress('Script registered (document-start)');
+      log('INFO', 'addScriptToEvaluateOnNewDocument OK', { id: result && result.identifier });
+      onProgress('Script registered ✓');
       injected = true;
     } catch (e) {
-      log('WARN', 'addScriptToEvaluateOnNewDocument failed, trying script element injection', { error: e.message });
+      log('WARN', 'addScriptToEvaluateOnNewDocument failed, trying Runtime.evaluate fallback', { error: e.message });
     }
 
     if (!injected) {
-      // TizenBrew's approach: Runtime.evaluate to append a script element
-      // This runs immediately in the current page context
-      var escapedCode = scriptCode.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
-      var evalScript = [
-        '(function() {',
-        '  var s = document.createElement("script");',
-        '  s.textContent = `' + escapedCode + '`;',
-        '  (document.head || document.documentElement).appendChild(s);',
-        '  s.remove();',
+      // TizenBrew's older approach: append script element via Runtime.evaluate
+      var escaped = scriptCode
+        .replace(/\\/g, '\\\\')
+        .replace(/`/g, '\\`')
+        .replace(/\${/g, '\\${');
+      var evalCode = [
+        '(function(){',
+        '  try {',
+        '    var s=document.createElement("script");',
+        '    s.textContent=`' + escaped + '`;',
+        '    (document.head||document.documentElement).appendChild(s);',
+        '    s.remove();',
+        '  } catch(e) { console.error("[TYT] inject error:",e); }',
         '})()'
       ].join('\n');
-
       await cdpSend(ws, 3, 'Runtime.evaluate', {
-        expression: evalScript,
+        expression: evalCode,
         includeCommandLineAPI: false,
         returnByValue: true
       });
-      log('INFO', 'Script injected via Runtime.evaluate + script element');
-      onProgress('Script injected (immediate)');
-      injected = true;
+      log('INFO', 'Script injected via Runtime.evaluate');
+      onProgress('Script injected via evaluate ✓');
     }
 
     try { ws.close(); } catch (_) {}

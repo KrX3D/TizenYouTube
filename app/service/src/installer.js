@@ -1,7 +1,9 @@
 'use strict';
 
-var fs    = require('fs');
-var fetch = require('node-fetch');
+var fs       = require('fs');
+// node-fetch v2 CommonJS — explicit default handling for webpack bundles
+var nodeFetch = require('node-fetch');
+var fetch    = (typeof nodeFetch === 'function') ? nodeFetch : nodeFetch.default;
 
 var TAG = '[TYT-INST]';
 function log(level, msg, data) {
@@ -28,9 +30,7 @@ async function installFromUrl(url, onProgress) {
   onProgress('Launching system installer…');
 
   await launchSystemInstaller('file://' + TEMP_WGT);
-  // Note: system installer runs separately — app will NOT auto-restart.
-  // User will see installation dialog or silent install on developer mode.
-  onProgress('System installer launched — reinstall app to complete');
+  onProgress('System installer launched — close and reopen app when done');
 }
 
 async function installLatestFromGitHub(repo, onProgress) {
@@ -48,7 +48,6 @@ async function installLatestFromGitHub(repo, onProgress) {
 
   log('INFO', 'Asset found', { name: asset.name, tag: data.tag_name });
   onProgress('Found v' + (data.tag_name || '?') + ' — downloading…');
-
   await installFromUrl(asset.browser_download_url, onProgress);
 }
 
