@@ -155,11 +155,49 @@
     setTimeout(function () { check(true); }, 5000);
   }
 
+  // installLatestForce — always installs from GitHub regardless of version comparison.
+  // Used when user explicitly clicks "Install latest" in settings.
+  async function installLatestForce(onStatus) {
+    Logger.begin('update', 'installLatestForce');
+    status(onStatus, 'Fetching latest release…', 0);
+    var info;
+    try {
+      info = await fetchLatest();
+    } catch (e) {
+      status(onStatus, 'Fetch failed: ' + e.message, -1);
+      Logger.end('update', 'installLatestForce'); return false;
+    }
+    if (!info.wgtUrl) {
+      status(onStatus, 'No WGT asset in latest release', -1);
+      Logger.end('update', 'installLatestForce'); return false;
+    }
+    Logger.info('update', 'Force install', { version: info.version, url: info.wgtUrl });
+    status(onStatus, 'Installing v' + info.version + '…', 10);
+
+    if (window.RuntimePatchBridge && RuntimePatchBridge.isAvailable()) {
+      RuntimePatchBridge.installFromUrl(info.wgtUrl, function (err) {
+        if (err) {
+          Logger.warn('update', 'Service failed, trying direct', { error: err.message });
+          directInstall(info.wgtUrl, onStatus);
+        } else {
+          // Service accepted the request — it will install in background and restart
+          status(onStatus, 'Install sent to service — app will restart when done', 100);
+          Logger.end('update', 'installLatestForce');
+        }
+      });
+      return true;
+    }
+    var result = await directInstall(info.wgtUrl, onStatus);
+    Logger.end('update', 'installLatestForce');
+    return result;
+  }
+
   window.AppUpdate = {
-    check:          check,
-    installLatest:  installLatest,
-    startupCheck:   startupCheck,
-    getAvailable:   function () { return _available; },
-    currentVersion: currentVersion
+    check:               check,
+    installLatest:       installLatest,
+    installLatestForce:  installLatestForce,
+    startupCheck:        startupCheck,
+    getAvailable:        function () { return _available; },
+    currentVersion:      currentVersion
   };
 })();

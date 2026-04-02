@@ -1,5 +1,5 @@
 :root { color-scheme: dark; font-family: Arial, sans-serif; }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; outline: none; }
 
 body {
   margin: 0;
@@ -17,30 +17,54 @@ body {
   border-bottom: 1px solid #2a2a40;
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  justify-content: center;
+  padding: 0 20px;
   z-index: 50;
 }
-.status-banner span { font-size: 17px; color: #8888aa; white-space: nowrap; }
 .status-banner.hidden { display: none; }
-#statusText  { color: #4fc; font-weight: bold; font-size: 18px; }
-#versionText { color: #6680aa; }
-#networkText { color: #88aacc; }
+
+/* Service status dot — far left */
+.svc-dot {
+  font-size: 14px;
+  color: #444466;
+  margin-right: 14px;
+  flex-shrink: 0;
+  transition: color 0.3s;
+}
+.svc-dot.ok      { color: #4fc; }
+.svc-dot.fail    { color: #f44; }
+.svc-dot.unknown { color: #666; }
+
+/* Center status info */
 .status-center {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+  white-space: nowrap;
 }
-.status-sep { color: #3f4f70; font-size: 18px; }
+.status-center span { font-size: 17px; color: #8888aa; }
+#statusText  { color: #4fc; font-weight: bold; font-size: 18px; }
+#versionText { color: #6680aa; }
+#networkText { color: #88aacc; }
+.status-sep  { color: #3f4f70; font-size: 18px; }
 
-/* ── Banner actions ────────────────────────────────────── */
+/* Update badge inline in banner */
+.update-badge {
+  background: #cc4400;
+  color: #fff;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 16px;
+  font-weight: bold;
+}
+
+/* Right: action buttons */
 .banner-actions {
   margin-left: auto;
   display: flex;
-  gap: 14px;
+  gap: 10px;
   align-items: center;
 }
 .banner-actions button {
@@ -50,47 +74,42 @@ body {
   border-radius: 8px;
   color: #c0c0e0;
   font-size: 17px;
-  padding: 6px 16px;
+  padding: 6px 14px;
 }
 
-/* ── Focus ─────────────────────────────────────────────── */
-/* outline:none globally, we use border+background as the focus indicator.
-   Border-based focus always works on Tizen 5.5 and 6.5.
-   All interactive elements already have border:2px so no layout shift on focus. */
-* { outline: none; }
+/* ── Focus — border+background, works on all Tizen versions ── */
+button:focus                { border-color: #f0c040; background: #3d5fcc; }
+.banner-actions button:focus{ border-color: #f0c040; background: #2f3150; }
+input:focus                 { border-color: #f0c040; background: #1c1c2e; }
+.settings-row:focus         { border-color: #f0c040; background: #222246; }
+#launchBtn:focus            { border-color: #f0c040; background: #1a44cc; }
 
-button:focus {
-  border-color: #f0c040;
-  background: #3d5fcc;
+/* ── Launch screen ─────────────────────────────────────── */
+/* Use explicit top/left/right/bottom — inset:0 not supported on Tizen 5.5 */
+.launch-screen {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Push card below the banner and slightly toward bottom-center */
+  padding-top: 120px;
+  padding-right: 80px;
+  z-index: 2;
+  background: #1a1a24;
 }
-
-.banner-actions button:focus {
-  border-color: #f0c040;
-  background: #2f3150;
+.launch-card {
+  text-align: center;
+  padding: 48px 60px;
+  background: #1e1e2e;
+  border: 2px solid #2e2e44;
+  border-radius: 16px;
+  max-width: 700px;
+  width: 100%;
 }
-
-input:focus {
-  border-color: #f0c040;
-  background: #1c1c2e;
-}
-
-.settings-row:focus {
-  border-color: #f0c040;
-  background: #222246;
-}
-
-#launchBtn:focus {
-  border-color: #f0c040;
-  background: #1a44cc;
-}
-
-#inputOk:focus,
-#inputCancel:focus,
-#playlistCloseBtn:focus,
-#fetchBtn:focus {
-  border-color: #f0c040;
-  background: #3d5fcc;
-}
+.launch-card h1 { margin: 0 0 16px; font-size: 42px; color: #fff; }
+.launch-card p  { color: #8888aa; font-size: 20px; margin: 0 0 28px; }
+#launchBtn      { font-size: 24px; padding: 14px 36px; }
 
 /* ── Content ───────────────────────────────────────────── */
 .container { padding: 70px 32px 32px; max-width: 1400px; margin: 0 auto; }
@@ -120,13 +139,10 @@ input {
   width: 100%; max-width: 580px;
   margin-top: 6px; padding: 10px;
   border-radius: 8px;
-  /* 2px border so focus doesn't cause layout shift */
   border: 2px solid #3a3a54;
   background: #161622; color: #e0e0f0;
   font-size: 18px;
   line-height: 1.4;
-  /* Hide caret — on Tizen 5.5 the caret renders as a full-height vertical bar
-     due to a WebKit bug. Since users type via on-screen keyboard, caret is not needed. */
   caret-color: transparent;
 }
 input[readonly] { color: #8888aa; cursor: default; }
@@ -155,7 +171,7 @@ pre {
 }
 .overlay.hidden { display: none; }
 
-/* ── Settings panel ────────────────────────────────────── */
+/* ── Settings / Playlist panel ─────────────────────────── */
 .settings-panel {
   position: absolute;
   top: 0; left: 0;
@@ -190,7 +206,6 @@ pre {
   align-items: center;
   padding: 12px 16px;
   border-radius: 8px;
-  /* Always show a border so focus change is visible (border-color changes) */
   border: 2px solid #1e1e36;
   font-size: 19px;
   cursor: pointer;
@@ -208,7 +223,7 @@ pre {
   position: absolute;
   display: flex;
   flex-direction: column;
-  background: rgba(18, 22, 38, 0.98);
+  background: rgba(18,22,38,0.98);
   border: 2px solid #324668;
   border-radius: 10px;
   overflow: hidden;
@@ -270,39 +285,6 @@ pre {
 }
 .input-dialog-label { margin: 0 0 14px; color: #9090c8; font-size: 20px; }
 .input-dialog-btns { display: flex; gap: 18px; margin-top: 18px; }
-
-/* ── Launch screen ─────────────────────────────────────── */
-.launch-screen {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  background: #1a1a24;
-}
-.launch-card {
-  text-align: center;
-  padding: 48px 60px;
-  background: #1e1e2e;
-  border: 2px solid #2e2e44;
-  border-radius: 16px;
-  max-width: 700px;
-}
-.launch-card h1 { margin: 0 0 16px; font-size: 42px; color: #fff; }
-.launch-card p  { color: #8888aa; font-size: 20px; margin: 0 0 28px; }
-#launchBtn { font-size: 24px; padding: 14px 36px; }
-
-/* Update badge shown on launch screen when update is available */
-.update-badge {
-  display: inline-block;
-  background: #cc4400;
-  color: #fff;
-  font-size: 15px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  margin-top: 12px;
-}
 
 #playlistOverlay .input-row input { max-width: none; }
 #playlistOverlay .input-row { gap: 18px; }

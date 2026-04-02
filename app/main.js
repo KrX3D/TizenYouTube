@@ -12,10 +12,11 @@
   var debugPanel      = document.getElementById('debugPanel');
   var debugLogs       = document.getElementById('debugLogs');
   var apiOutputEl     = document.getElementById('apiOutput');
+  var svcDot          = document.getElementById('svcDot');
 
   var activeOverlay = null;
 
-  // ── Toast — global so update.js and other modules can call it ─────────────
+  // ── Toast ─────────────────────────────────────────────────────────────────
   window.AppToast = function (msg) {
     var t = document.createElement('div');
     t.textContent = msg;
@@ -29,6 +30,41 @@
     setTimeout(function () { t.style.transition = 'opacity 0.5s'; t.style.opacity = '0'; }, 3000);
     setTimeout(function () { t.remove(); }, 3600);
   };
+
+  // ── Service dot ───────────────────────────────────────────────────────────
+  function setSvcDot(state) {
+    // state: 'ok' | 'fail' | 'unknown'
+    if (!svcDot) return;
+    svcDot.className = 'svc-dot ' + state;
+    svcDot.title = state === 'ok' ? 'Service: running' :
+                   state === 'fail' ? 'Service: unreachable' : 'Service: unknown';
+  }
+
+  function pingService() {
+    setSvcDot('unknown');
+    RuntimePatchBridge.installFromUrl('__ping__', function (err) {
+      if (err) {
+        setSvcDot('fail');
+        Logger.debug('service', 'Ping failed', { error: err.message });
+      } else {
+        setSvcDot('ok');
+        Logger.debug('service', 'Ping OK');
+      }
+    });
+  }
+
+  // ── Update badge ──────────────────────────────────────────────────────────
+  function updateBadge() {
+    var badge = document.getElementById('updateBadge');
+    if (!badge) return;
+    var info = AppUpdate && AppUpdate.getAvailable();
+    if (info) {
+      badge.textContent = '⬆ v' + info.version;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
 
   // ── Settings definition ───────────────────────────────────────────────────
   var SETTINGS_DEF = [
@@ -87,16 +123,15 @@
 
     { section: 'Updates' },
     { id: 'action.checkUpdate',   label: '↻ Check for updates',  type: 'action',
-      action: function () { AppUpdate.check(false); }},
+      action: function () {
+        AppUpdate.check(false).then(function () { updateBadge(); });
+      }},
     { id: 'action.installUpdate', label: '⬇ Install latest',     type: 'action',
       action: function () {
-        var available = AppUpdate.getAvailable();
-        if (!available) {
-          AppToast('No update cached — run Check for updates first');
-          return;
-        }
-        AppToast('Installing v' + available.version + '…');
-        AppUpdate.installLatest(function (msg, pct) {
+        // Always install latest from GitHub regardless of whether it is
+        // "newer" than current — user explicitly requested it.
+        AppToast('Fetching latest release…');
+        AppUpdate.installLatestForce(function (msg, pct) {
           AppToast(msg);
           if (pct === 100) updateBadge();
         });
@@ -116,33 +151,8 @@
         Logger.info('test', 'Test from settings', { source: 'settings' });
         Logger.end('test', 'Manual test log');
       }},
-    { id: 'action.svcStatus', label: 'Service app ID',           type: 'action',
-      action: function () {
-        var id = RuntimePatchBridge.getServiceAppId();
-        AppToast('Service: ' + id);
-        Logger.info('service', 'Service app ID', { id: id });
-      }},
-    { id: 'action.svcPing',   label: '🔧 Ping installer service', type: 'action',
-      action: function () {
-        var id = AppIdentity.serviceAppId;
-        Logger.info('service', 'Attempting service ping', { id: id });
-        AppToast('Pinging service ' + id + '…');
-        RuntimePatchBridge.installFromUrl('__ping__', function (err) {
-          if (err) {
-            // launchAppControl failure means service not reachable or not installed
-            Logger.warn('service', 'Ping failed', { error: err.message });
-            AppToast('Service unreachable: ' + err.message);
-          } else {
-            // launchAppControl success means service started — it will log and exit
-            Logger.info('service', 'Service responded to ping');
-            AppToast('Service is running ✓');
-          }
-        });
-      }},
 
     { section: 'Actions' },
-    { id: 'action.save',  label: '✓ Save & close',               type: 'action',
-      action: function () { AppConfig.save(); Logger.info('settings', 'Saved'); closeOverlay(); }},
     { id: 'action.reset', label: '✗ Reset defaults',             type: 'action',
       action: function () { AppConfig.reset(); location.reload(); }}
   ];
@@ -188,15 +198,25 @@
   }
 
   function activateSetting(def, valEl) {
-    if (def.type === 'bool')        { def.set(!def.get()); refreshValue(valEl, def); }
-    else if (def.type === 'choice') { cycleChoice(def, valEl, 1); }
-    else if (def.type === 'action') { def.action(); }
-    else { showInputDialog(def.label, String(def.get() || ''), function (v) { def.set(v); refreshValue(valEl, def); }); }
+    if (def.type === 'bool') {
+      def.set(!def.get()); refreshValue(valEl, def);
+      AppConfig.save(); // auto-save on every change
+    } else if (def.type === 'choice') {
+      cycleChoice(def, valEl, 1);
+      AppConfig.save();
+    } else if (def.type === 'action') {
+      def.action();
+    } else {
+      showInputDialog(def.label, String(def.get() || ''), function (v) {
+        def.set(v); refreshValue(valEl, def);
+        AppConfig.save();
+      });
+    }
   }
 
   function activateBack(def, valEl) {
-    if (def.type === 'bool')   { def.set(!def.get()); refreshValue(valEl, def); }
-    if (def.type === 'choice') { cycleChoice(def, valEl, -1); }
+    if (def.type === 'bool')   { def.set(!def.get()); refreshValue(valEl, def); AppConfig.save(); }
+    if (def.type === 'choice') { cycleChoice(def, valEl, -1); AppConfig.save(); }
   }
 
   function cycleChoice(def, valEl, dir) {
@@ -223,8 +243,9 @@
       field.setAttribute('readonly', '');
       inputDialogOpen = false;
       if (save) cb(field.value);
+      // Restore focus to first settings row
       var rows = settingsList.querySelectorAll('.settings-row');
-      if (rows.length) rows[0].focus();
+      if (rows.length) setTimeout(function () { rows[0].focus(); }, 50);
     }
 
     field.onkeydown = function (e) {
@@ -235,10 +256,10 @@
     };
     okBtn.onkeydown = function (e) {
       e.stopPropagation();
-      if (e.keyCode === 13)                            { close(true); }
-      if (e.keyCode === KEY.BACK)                      { close(false); }
-      if (e.keyCode === KEY.RIGHT)                     { cancelBtn.focus(); }
-      if (e.keyCode === KEY.LEFT || e.keyCode===KEY.UP){ field.focus(); }
+      if (e.keyCode === 13)                             { close(true); }
+      if (e.keyCode === KEY.BACK)                       { close(false); }
+      if (e.keyCode === KEY.RIGHT)                      { cancelBtn.focus(); }
+      if (e.keyCode === KEY.LEFT || e.keyCode===KEY.UP) { field.focus(); }
     };
     cancelBtn.onkeydown = function (e) {
       e.stopPropagation();
@@ -248,6 +269,46 @@
     };
     okBtn.onclick     = function () { close(true); };
     cancelBtn.onclick = function () { close(false); };
+  }
+
+  // ── Readonly inputs (playlist + any standalone inputs) ────────────────────
+  function initReadonlyInputs() {
+    // Only the playlist input — inputDialogField is managed separately
+    var inputs = [document.getElementById('playlistId')].filter(Boolean);
+    inputs.forEach(function (input) {
+      input.setAttribute('readonly', '');
+      input.addEventListener('keydown', function (e) {
+        if (input.hasAttribute('readonly')) {
+          if (e.keyCode === KEY.ENTER) {
+            e.stopPropagation(); e.preventDefault();
+            input.removeAttribute('readonly');
+            input.blur(); input.focus();
+          }
+          return;
+        }
+        if (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT) { e.stopPropagation(); return; }
+        if (e.keyCode === KEY.ENTER) {
+          e.stopPropagation(); e.preventDefault();
+          input.setAttribute('readonly', '');
+          input.blur();
+        }
+        if (e.keyCode === KEY.BACK) {
+          e.stopPropagation(); e.preventDefault();
+          input.setAttribute('readonly', '');
+          input.blur();
+        }
+      });
+      input.addEventListener('blur', function () {
+        input.setAttribute('readonly', '');
+        // Re-focus the fetchBtn so navigation continues without needing Enter
+        setTimeout(function () {
+          if (activeOverlay === 'playlist') {
+            var btn = document.getElementById('fetchBtn');
+            if (btn) btn.focus();
+          }
+        }, 80);
+      });
+    });
   }
 
   // ── Overlays ──────────────────────────────────────────────────────────────
@@ -362,11 +423,11 @@
 
     var kc = e.keyCode;
 
-    // Yellow, Red, Green all toggle debug console — triple fallback for color key issues
+    // Yellow, Red, Green all toggle debug console
     if (kc === KEY.YELLOW || kc === KEY.RED || kc === KEY.GREEN ||
         kc === 403 || kc === 404 || kc === 405) {
       e.preventDefault();
-      Logger.debug('keys', 'Debug key pressed', { kc: kc });
+      Logger.debug('keys', 'Debug key', { kc: kc });
       if (activeOverlay === 'debug') { closeOverlay(); }
       else {
         settingsOverlay.classList.add('hidden');
@@ -455,19 +516,6 @@
     Logger.end('youtube', 'fetchPlaylistItems');
   }
 
-  // ── Update badge ──────────────────────────────────────────────────────────
-  function updateBadge() {
-    var badge = document.getElementById('updateBadge');
-    if (!badge) return;
-    var info = AppUpdate && AppUpdate.getAvailable();
-    if (info) {
-      badge.textContent = '⬆ Update available: v' + info.version;
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-
   // ── Init ──────────────────────────────────────────────────────────────────
   function init() {
     Logger.begin('main', 'init');
@@ -485,6 +533,7 @@
 
     AppKeys.init();
     initNetwork();
+    initReadonlyInputs();
 
     Logger.onLog(function () { if (activeOverlay === 'debug') renderDebugLogs(); });
 
@@ -498,8 +547,12 @@
       window.YouTubeTV.launch();
     });
 
+    // Startup update check — silent
     AppUpdate.startupCheck();
     setTimeout(updateBadge, 6000);
+
+    // Ping service on startup to show dot status
+    setTimeout(pingService, 2000);
 
     var f = getMainFocusable();
     if (f.length) f[0].focus();
