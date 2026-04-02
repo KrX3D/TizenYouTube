@@ -20,6 +20,7 @@
                  encryption="disable"
                  install-location="auto"
                  hwkey-event="enable"/>
+
   <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support"
                   value="true"/>
 
@@ -38,6 +39,7 @@
     <tizen:name>TizenYouTubeService</tizen:name>
     <tizen:content src="service/dist/index.js"/>
     <tizen:description>Injection and installer service</tizen:description>
+    <tizen:privilege name="http://tizen.org/privilege/packagemanager.install"/>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
