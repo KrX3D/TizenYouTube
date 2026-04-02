@@ -28,46 +28,61 @@
     });
   }
 
+  function buildCombinedScript(scripts) {
+    var ver = '0.0.0';
+    try { ver = tizen.application.getCurrentApplication().appInfo.version; } catch (_) {}
+
+    var cfg      = window.AppConfig && window.AppConfig.debug ? window.AppConfig.debug : {};
+    var endpoint = (cfg.serverIp && cfg.serverPort && cfg.remoteLogging)
+      ? 'http://' + cfg.serverIp + ':' + cfg.serverPort + '/tv-log' : '';
+
+    var preamble = [
+      'window.__TYT_VERSION__="' + ver + '";',
+      'window.__TYT_REMOTE_ENDPOINT__="' + endpoint + '";'
+    ].join('\n');
+
+    return preamble + '\n;\n' + scripts.join('\n;\n');
+  }
+
+  function navigate() {
+    Logger.info('youtube', 'Navigating to YouTube TV');
+    window.location.href = 'https://www.youtube.com/tv';
+  }
+
   function launch() {
     Logger.begin('youtube', 'launch');
 
     loadAllScripts(function (scripts) {
-      // Prepend version
-      try {
-        var ver = tizen.application.getCurrentApplication().appInfo.version;
-        scripts[0] = 'window.__TYT_VERSION__="' + ver + '";\n' + scripts[0];
-      } catch (e) {}
+      var combined = buildCombinedScript(scripts);
+      Logger.info('youtube', 'Injection scripts built', {
+        files: INJECTION_FILES,
+        bytes: combined.length
+      });
 
-      // Store remote log config
-      try {
-        var cfg      = window.AppConfig && window.AppConfig.debug ? window.AppConfig.debug : {};
-        var endpoint = (cfg.serverIp && cfg.serverPort)
-          ? 'http://' + cfg.serverIp + ':' + cfg.serverPort + '/tv-log' : '';
-        sessionStorage.setItem('__TYT_REMOTE_LOG_CFG__', JSON.stringify({
-          endpoint: cfg.remoteLogging ? endpoint : ''
-        }));
-      } catch (e) {}
+      var appId;
+      try { appId = tizen.application.getCurrentApplication().appInfo.id; } catch (_) {}
 
-      // Store combined injection payload
-      try {
-        sessionStorage.setItem('__TYT_INJECT__', scripts.join('\n;\n'));
-        Logger.info('youtube', 'Injection scripts stored', {
-          files:      INJECTION_FILES,
-          totalBytes: scripts.reduce(function (s, x) { return s + x.length; }, 0)
+      if (appId && window.RuntimePatchBridge && RuntimePatchBridge.isAvailable()) {
+        Logger.info('youtube', 'Sending injection to service', { appId: appId });
+
+        RuntimePatchBridge.inject(appId, combined, function (err) {
+          if (err) {
+            Logger.warn('youtube', 'Service inject call failed — navigating without injection', { error: err.message });
+            Logger.end('youtube', 'launch');
+            navigate();
+          } else {
+            // launchAppControl success = service started and received the action.
+            // ADB + CDP round trip takes ~500ms. Wait 3s to be safe before navigating.
+            Logger.info('youtube', 'Inject dispatched to service — waiting 3s for CDP round trip');
+            Logger.end('youtube', 'launch');
+            setTimeout(navigate, 3000);
+          }
         });
-      } catch (e) {
-        Logger.warn('youtube', 'sessionStorage failed', { error: e.message });
+      } else {
+        Logger.warn('youtube', 'Service unavailable — navigating without injection');
+        Logger.end('youtube', 'launch');
+        navigate();
       }
-
-      Logger.info('youtube', 'Navigating to YouTube TV');
-      Logger.end('youtube', 'launch');
-
-      // Navigate directly to youtube.com/tv
-      // NOTE: injection into youtube.com/tv from this WGT context is not
-      // currently possible — see relay.html for explanation.
-      // TizenTube works because it IS a fork of the YouTube TV webapp.
-      // Future work: investigate Tizen WRT userscript injection hooks.
-      window.location.href = 'https://www.youtube.com/tv';
     });
   }
 

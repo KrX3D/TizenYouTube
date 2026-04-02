@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://krx3d.com/tizenyoutube"
-        version="0.1.64"
+        version="0.1.61"
         viewmodes="maximized">
   <name>TizenYouTube</name>
   <access origin="*" subdomains="true"></access>
@@ -20,23 +20,25 @@
                  encryption="disable"
                  install-location="auto"
                  hwkey-event="enable"/>
+
   <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support"
                   value="true"/>
+
   <tizen:privilege name="http://tizen.org/privilege/internet"/>
   <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
   <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
   <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
-  <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
   <tizen:privilege name="http://tizen.org/privilege/unlimitedstorage"/>
+  <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
 
   <tizen:service id="krx3dYtV01.service"
                  auto-restart="false"
                  on-boot="false">
     <tizen:name>TizenYouTubeService</tizen:name>
-    <tizen:content src="service/service.js"/>
-    <tizen:description>Package installer service</tizen:description>
+    <tizen:content src="service/dist/index.js"/>
+    <tizen:description>Injection and installer service</tizen:description>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>

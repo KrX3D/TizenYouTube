@@ -23,8 +23,7 @@
         null, null, null, data
       );
       tizen.application.launchAppControl(
-        ctrl,
-        getServiceAppId(),
+        ctrl, getServiceAppId(),
         function ()  { cb(null); },
         function (e) { cb(new Error((e && e.message) || 'launchAppControl failed')); }
       );
@@ -34,6 +33,15 @@
   window.RuntimePatchBridge = {
     isAvailable:     function () { return hasTizen(); },
     getServiceAppId: function () { return getServiceAppId(); },
+
+    // Inject scripts into running app via ADB + CDP
+    // scriptCode: raw JS string (will be base64 encoded for safe transport)
+    inject: function (appId, scriptCode, cb) {
+      var b64;
+      try { b64 = btoa(unescape(encodeURIComponent(scriptCode))); }
+      catch (e) { cb(new Error('base64 encode failed: ' + e.message)); return; }
+      callService('inject', { tytAppId: appId, tytScript: b64 }, cb || function () {});
+    },
 
     installFromUrl: function (url, cb) {
       callService('installFromUrl', { tytUrl: url }, cb || function () {});

@@ -138,6 +138,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y expect zip unzip
 
+      - name: Build service bundle
+        run: |
+          cd app/service
+          npm install --prefer-offline
+          npm run build
+          echo "Service bundle built:"
+          ls -lh dist/index.js
+
       - name: Download Tizen Studio CLI
         run: |
           curl -fL -o tizen-installer \
@@ -176,9 +184,17 @@ jobs:
             echo "No source icon found, generated placeholder app/icon.png"
           fi
 
+      - name: Build service bundle
+        run: |
+          cd app/service
+          npm install --prefer-offline
+          npm run build
+          echo "Service bundle size:"
+          ls -lh dist/index.js
+
       - name: Build web app
         working-directory: app
-        run: tizen build-web -e ".gitignore" -e "README.md"
+        run: tizen build-web -e ".gitignore" -e "README.md" -e "service/src" -e "service/package.json" -e "service/package-lock.json" -e "service/webpack.config.js" -e "service/node_modules"
 
       - name: Package WGT
         working-directory: app
