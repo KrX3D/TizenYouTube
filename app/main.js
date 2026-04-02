@@ -16,19 +16,43 @@
 
   var activeOverlay = null;
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
+  // ── Toast (stacking) ──────────────────────────────────────────────────────
+  var _toasts = [];
+  var _TOAST_BASE_BOTTOM = 40;
+  var _TOAST_STEP        = 62;
+
+  function _toastRestack() {
+    _toasts.forEach(function (el, i) {
+      el.style.bottom = (_TOAST_BASE_BOTTOM + i * _TOAST_STEP) + 'px';
+    });
+  }
+
   window.AppToast = function (msg) {
     var t = document.createElement('div');
     t.textContent = msg;
     t.style.cssText = [
-      'position:fixed;bottom:40px;left:50%;transform:translateX(-50%)',
+      'position:fixed',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'bottom:' + (_TOAST_BASE_BOTTOM + _toasts.length * _TOAST_STEP) + 'px',
       'background:#1e2e50;border:2px solid #3a4a70;border-radius:10px',
       'padding:14px 28px;font-size:20px;color:#d0d8f0',
-      'z-index:600;pointer-events:none;max-width:900px;text-align:center'
+      'z-index:600;pointer-events:none;max-width:900px;text-align:center',
+      'transition:bottom 0.25s ease'
     ].join(';');
     document.body.appendChild(t);
-    setTimeout(function () { t.style.transition = 'opacity 0.5s'; t.style.opacity = '0'; }, 3000);
-    setTimeout(function () { t.remove(); }, 3600);
+    _toasts.push(t);
+
+    setTimeout(function () {
+      t.style.transition = 'bottom 0.25s ease, opacity 0.5s';
+      t.style.opacity = '0';
+    }, 3000);
+    setTimeout(function () {
+      t.remove();
+      var i = _toasts.indexOf(t);
+      if (i >= 0) _toasts.splice(i, 1);
+      _toastRestack();
+    }, 3600);
   };
 
   // ── Service dot ───────────────────────────────────────────────────────────

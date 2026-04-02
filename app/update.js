@@ -98,10 +98,10 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var blob = await res.blob();
       status(onStatus, 'Saving…', 50);
-      var path = await saveBlob(blob, 'TizenYouTube_update.wgt');
-      status(onStatus, 'Installing…', 75);
-      await runPackageInstall(path);
-      status(onStatus, 'Done — restart app', 100);
+      var fileUri = await saveBlob(blob, 'TizenYouTube_update.wgt');
+      status(onStatus, 'Launching installer…', 75);
+      await launchSystemInstaller(fileUri);
+      status(onStatus, 'Installer launched — reopen app when done', 100);
       Logger.info('update', 'Direct install success');
       Logger.end('update', 'installLatest');
       return true;
@@ -117,6 +117,7 @@
     return new Promise(function (resolve, reject) {
       tizen.filesystem.resolve('downloads', function (dir) {
         try { dir.deleteFile(dir.toURI() + '/' + filename); } catch (_) {}
+        try { dir.deleteFile(dir.toURI() + filename); } catch (_) {}
         var file   = dir.createFile(filename);
         var reader = new FileReader();
         reader.onload = function () {
@@ -124,7 +125,10 @@
             try {
               stream.writeBytes(Array.prototype.slice.call(new Uint8Array(reader.result)));
               stream.close();
-              resolve('downloads/' + filename);
+              // Return the full file:// URI — required for operation/install AppControl
+              var base = dir.toURI();
+              if (base.charAt(base.length - 1) !== '/') base += '/';
+              resolve(base + filename);
             } catch (e) { reject(e); }
           }, reject, 'UTF-8');
         };
@@ -134,14 +138,25 @@
     });
   }
 
-  function runPackageInstall(tizenPath) {
+  // Use the Samsung system package manager via AppControl — no extra privilege required,
+  // same approach as TizenBrewInstaller when running on-TV.
+  function launchSystemInstaller(fileUri) {
     return new Promise(function (resolve, reject) {
+      Logger.info('update', 'Launching system installer', { uri: fileUri });
       try {
-        tizen.package.install(tizenPath, {
-          onprogress: function (id, pct) { Logger.debug('update', 'progress', { pct: pct }); },
-          oncomplete: function (id)      { resolve(id); },
-          onerror:    function (e)       { reject(new Error('pkg: ' + (e.message || e))); }
-        });
+        var appControl = new tizen.ApplicationControl(
+          'http://tizen.org/appcontrol/operation/install',
+          fileUri,
+          'application/widget',
+          null,
+          []
+        );
+        tizen.application.launchAppControl(
+          appControl,
+          null,
+          function () { resolve(); },
+          function (e) { reject(new Error((e && e.message) || 'launchAppControl failed')); }
+        );
       } catch (e) { reject(e); }
     });
   }
@@ -173,12 +188,14 @@
         info.wgtUrl,
         function (err) {
           if (err) {
-            Logger.error('update', 'Service install failed', { error: err.message });
-            status(onStatus, 'Service install failed: ' + err.message, -1);
+            Logger.warn('update', 'Service install failed — falling back to direct install', { error: err.message });
+            directInstall(info.wgtUrl, onStatus).then(function () {
+              Logger.end('update', 'installLatestForce');
+            });
           } else {
-            status(onStatus, 'Installer launched — close and reopen app when done', 100);
+            status(onStatus, 'Installer launched — reopen app when done', 100);
+            Logger.end('update', 'installLatestForce');
           }
-          Logger.end('update', 'installLatestForce');
         },
         function (step) { status(onStatus, step, 50); }
       );
