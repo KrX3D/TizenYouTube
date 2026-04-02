@@ -6,7 +6,6 @@
     "build": "webpack --config webpack.config.js"
   },
   "dependencies": {
-    "adbhost": "^0.1.0",
     "node-fetch": "^2.7.0",
     "ws": "^7.5.10"
   },
