@@ -23,7 +23,6 @@
 
   <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support"
                   value="true"/>
-
   <tizen:privilege name="http://tizen.org/privilege/internet"/>
   <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
