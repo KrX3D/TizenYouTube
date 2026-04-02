@@ -6,8 +6,11 @@
     "build": "webpack --config webpack.config.js"
   },
   "dependencies": {
+    "adbhost": "^0.0.2",
+    "jszip": "^3.10.1",
     "node-fetch": "2.6.13",
-    "ws": "7.5.10"
+    "ws": "7.5.10",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "webpack": "^5.90.0",
