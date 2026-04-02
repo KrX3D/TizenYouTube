@@ -11,9 +11,28 @@ module.exports = {
     libraryTarget: 'commonjs2'
   },
   optimization: {
-    minimize: false  // keep readable for sdb dlog debugging
+    minimize: false
   },
   resolve: {
     extensions: ['.js']
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              ['@babel/preset-env', {
+                targets: { node: '4' },
+                modules: 'commonjs'
+              }]
+            ]
+          }
+        }
+      }
+    ]
   }
 };
