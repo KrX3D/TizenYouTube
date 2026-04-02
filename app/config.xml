@@ -9,7 +9,6 @@
   <icon src="icon.png"/>
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.all"/>
-
   <tizen:application id="krx3dYtV01.TizenYouTube"
                      package="krx3dYtV01"
                      required_version="3.0"/>
