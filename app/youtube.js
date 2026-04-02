@@ -1,47 +1,20 @@
 (function () {
-  // ── YouTube TV launcher ───────────────────────────────────────────────────
-  // On Tizen WRT, <webview> is NOT supported — the WGT itself IS the webview.
-  // The correct approach: navigate window.location to youtube.com/tv.
-  // Injection scripts are delivered via a content script mechanism using
-  // tizen:// URI scheme or by storing them in sessionStorage before navigation,
-  // then executing them via a relay page.
-  //
-  // Simpler approach used here: store injection scripts in sessionStorage,
-  // navigate to a local relay.html which reads them and injects into youtube.com/tv
-  // via a nested iframe approach, OR navigate directly and lose app context.
-  //
-  // For now: navigate directly to youtube.com/tv.
-  // The injections/bootstrap.js etc. will be loaded via a bookmarklet-style
-  // approach using sessionStorage as a carrier.
-
   var INJECTION_FILES = [
     'injections/bootstrap.js',
     'injections/fetchInterceptor.js',
-    'injections/jsonTap.js',
-    'injections/adblock.js',
-    'injections/ui/nativeSettingsPatch.js',
-    'injections/ui/settings.js',
-    'injections/ui/customYTSettings.js'
+    'injections/adblock.js'
   ];
 
   function loadScript(path, cb) {
-    Logger.debug('youtube', 'Loading injection script', { path: path });
     var xhr = new XMLHttpRequest();
     xhr.open('GET', path, true);
-    xhr.onload  = function () {
-      var looksLocalSuccess = (xhr.status === 0 && typeof xhr.responseText === 'string' && xhr.responseText.length > 0);
-      if (xhr.status === 200 || looksLocalSuccess) {
-        Logger.info('youtube', 'Loaded injection script', { path: path, bytes: xhr.responseText.length });
-        cb(null, xhr.responseText);
-        return;
-      }
-      Logger.warn('youtube', 'Injection script missing', { path: path, status: xhr.status });
+    xhr.onload = function () {
+      var ok = (xhr.status === 200) || (xhr.status === 0 && xhr.responseText && xhr.responseText.length > 0);
+      if (ok) { cb(null, xhr.responseText); return; }
+      Logger.warn('youtube', 'Script load failed', { path: path, status: xhr.status });
       cb(new Error('HTTP ' + xhr.status + ': ' + path));
     };
-    xhr.onerror = function () {
-      Logger.error('youtube', 'Injection XHR error', { path: path });
-      cb(new Error('XHR error: ' + path));
-    };
+    xhr.onerror = function () { cb(new Error('XHR error: ' + path)); };
     xhr.send();
   }
 
@@ -58,76 +31,57 @@
 
   function launch() {
     Logger.begin('youtube', 'launch');
-    var launchStatusEl = document.getElementById('launchStatus');
 
     loadAllScripts(function (scripts) {
+      // Prepend version from host app
       try {
-        // Prepend version
         var ver = tizen.application.getCurrentApplication().appInfo.version;
         scripts[0] = 'window.__TYT_VERSION__="' + ver + '";\n' + scripts[0];
-      } catch (e) {}
+      } catch (e) {
+        Logger.warn('youtube', 'Could not read version for preamble', { error: e.message });
+      }
 
-      // Store combined injection script in sessionStorage.
-      // A relay page at youtube.com can't read this (different origin),
-      // but when we navigate to youtube.com/tv the injected script
-      // is retrieved by our service worker approach.
-      // For now: store it so we can revisit the injection strategy.
+      // Store remote logging config so bootstrap.js can pick it up
       try {
         var cfg = window.AppConfig && window.AppConfig.debug ? window.AppConfig.debug : {};
         var endpoint = (cfg.serverIp && cfg.serverPort)
-          ? ('http://' + cfg.serverIp + ':' + cfg.serverPort + '/tv-log')
+          ? 'http://' + cfg.serverIp + ':' + cfg.serverPort + '/tv-log'
           : '';
         sessionStorage.setItem('__TYT_REMOTE_LOG_CFG__', JSON.stringify({
           endpoint: cfg.remoteLogging ? endpoint : ''
         }));
+      } catch (e) {
+        Logger.warn('youtube', 'Could not store remote log config', { error: e.message });
+      }
 
+      // Store injection scripts — NOTE: sessionStorage is same-origin only.
+      // When window.location navigates to youtube.com/tv the scripts stored here
+      // are NOT accessible from that context (different origin).
+      // This storage is kept for future service-worker or relay-page approach.
+      // The actual injection mechanism for the WGT context works as follows:
+      //   The WGT navigates to youtube.com/tv, which runs in the SAME browsing
+      //   context as this WGT. The WGT's JavaScript context is replaced by YT's,
+      //   so the scripts cannot be auto-injected post-navigation without a hook.
+      //   TizenBrew handles this via its service app which can execute scripts.
+      //   For now: injection is not active after navigation — this is a known gap.
+      try {
         sessionStorage.setItem('__TYT_INJECT__', scripts.join('\n;\n'));
-        Logger.info('youtube', 'Injection scripts stored in sessionStorage', {
-          totalBytes: scripts.join('').length,
-          files: INJECTION_FILES,
-          remoteEndpoint: endpoint
+        Logger.info('youtube', 'Injection scripts ready', {
+          files:      INJECTION_FILES,
+          totalBytes: scripts.reduce(function (s, x) { return s + x.length; }, 0)
         });
       } catch (e) {
-        Logger.warn('youtube', 'Could not store injection scripts', { error: e.message });
+        Logger.warn('youtube', 'sessionStorage unavailable', { error: e.message });
       }
 
-      var useRuntimePatch = !!(window.AppConfig && window.AppConfig.runtimePatch && window.AppConfig.runtimePatch.enabled);
-      if (useRuntimePatch && window.RuntimePatchContracts && window.RuntimePatchBridge) {
-        var payload = window.RuntimePatchContracts.createLaunchPayload(window.AppConfig);
-        Logger.info('youtube', 'Trying runtime patch launch handoff', payload);
-        window.RuntimePatchBridge.launchPatchedYouTube(payload, function (err, result) {
-          if (!err) {
-            Logger.info('youtube', 'Runtime patch handoff success', result || {});
-            Logger.end('youtube', 'launch');
-            return;
-          }
-          Logger.error('youtube', 'Runtime patch handoff failed', { error: err.message || String(err) });
-          var fallback = !!(window.AppConfig.runtimePatch && window.AppConfig.runtimePatch.fallbackToDirectNavigation);
-          if (!fallback) {
-            if (launchStatusEl) {
-              launchStatusEl.innerHTML = 'Runtime patch failed: <strong>' + (err.message || String(err)) + '</strong>. Stayed on main screen.';
-            }
-            Logger.end('youtube', 'launch');
-            return;
-          }
-          Logger.warn('youtube', 'Fallback to direct navigation', {});
-          Logger.end('youtube', 'launch');
-          window.location.href = 'https://www.youtube.com/tv';
-        });
-        return;
-      }
-
-      Logger.warn('youtube', 'Direct navigation mode active', {
-        note: 'Runtime patch bridge disabled or unavailable'
-      });
+      Logger.info('youtube', 'Navigating to YouTube TV');
       Logger.end('youtube', 'launch');
       window.location.href = 'https://www.youtube.com/tv';
     });
   }
 
   window.YouTubeTV = {
-    launch:  launch,
-    // Stubs for compatibility with main.js references
+    launch:     launch,
     init:       function () {},
     reload:     function () { window.location.reload(); },
     goBack:     function () { window.history.back(); },
@@ -135,5 +89,4 @@
     isReady:    function () { return false; },
     execute:    function () {}
   };
-
 })();

@@ -110,6 +110,11 @@ input:focus                 { border-color: #f0c040; background: #1c1c2e; }
 .launch-card h1 { margin: 0 0 16px; font-size: 42px; color: #fff; }
 .launch-card p  { color: #8888aa; font-size: 20px; margin: 0 0 28px; }
 #launchBtn      { font-size: 24px; padding: 14px 36px; }
+/* Playlist close button — inline border-color needs !important to allow focus override */
+#playlistCloseBtn:focus {
+  border-color: #f0c040 !important;
+  background: #3d3060 !important;
+}
 
 /* ── Content ───────────────────────────────────────────── */
 .container { padding: 70px 32px 32px; max-width: 1400px; margin: 0 auto; }

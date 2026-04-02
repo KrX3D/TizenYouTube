@@ -551,8 +551,18 @@
     AppUpdate.startupCheck();
     setTimeout(updateBadge, 6000);
 
-    // Ping service on startup to show dot status
-    setTimeout(pingService, 2000);
+    // Ping service at startup and log result alongside version info
+    setTimeout(function () {
+      RuntimePatchBridge.installFromUrl('__ping__', function (err) {
+        if (err) {
+          setSvcDot('fail');
+          Logger.warn('main', 'Service not available at startup', { error: err.message });
+        } else {
+          setSvcDot('ok');
+          Logger.info('main', 'Service is running', { id: AppIdentity.serviceAppId });
+        }
+      });
+    }, 1500);
 
     var f = getMainFocusable();
     if (f.length) f[0].focus();
