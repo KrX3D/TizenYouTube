@@ -8,72 +8,94 @@ module.exports.onStart = function () {
 
   log('INFO', 'Service started', { nodeVersion: process.version });
 
+  var http      = require('http');
+  var WebSocket = require('ws');
   var cdp       = require('./cdp');
   var installer = require('./installer');
 
-  function getCtrl() {
-    try {
-      var req = tizen.application.getCurrentApplication().getRequestedAppControl();
-      if (!req || !req.appControl) return {};
-      var out = {};
-      (req.appControl.data || []).forEach(function (item) {
-        if (item.value && item.value.length) out[item.key] = item.value[0];
-      });
-      return out;
-    } catch (e) {
-      log('ERROR', 'getRequestedAppControl failed', { error: e.message });
-      return {};
-    }
-  }
+  var PORT = 8082;
+  var server = http.createServer(function (req, res) {
+    res.writeHead(200); res.end('TYT Service OK');
+  });
 
-  try {
-    var ctrl = getCtrl();
-    log('INFO', 'Action received', { action: ctrl.tytAction || '(none)' });
+  var wss = new WebSocket.Server({ server: server });
 
-    switch (ctrl.tytAction) {
+  wss.on('connection', function (ws) {
+    log('INFO', 'Client connected');
 
-      case 'inject': {
-        // Script is base64-encoded to safely pass through ApplicationControlData
-        var appId = ctrl.tytAppId;
-        var scriptB64 = ctrl.tytScript;
-        if (!appId || !scriptB64) {
-          log('ERROR', 'inject: missing tytAppId or tytScript');
-          break;
-        }
-        var script;
+    ws.on('message', function (raw) {
+      var msg;
+      try { msg = JSON.parse(raw); } catch (e) {
+        log('WARN', 'Invalid JSON from client', { raw: String(raw).slice(0, 100) });
+        return;
+      }
+
+      var id     = msg.id || null;
+      var action = msg.action;
+      log('INFO', 'Action received', { action: action, id: id });
+
+      function reply(status, data) {
         try {
-          script = Buffer.from(scriptB64, 'base64').toString('utf8');
-        } catch (e) {
-          log('ERROR', 'base64 decode failed', { error: e.message });
+          ws.send(JSON.stringify({ id: id, action: action, status: status, data: data || null }));
+        } catch (_) {}
+      }
+
+      switch (action) {
+
+        case 'ping':
+          reply('ok', { alive: true });
+          break;
+
+        case 'inject': {
+          var appId    = msg.appId;
+          var scriptB64 = msg.script;
+          if (!appId || !scriptB64) { reply('error', { message: 'Missing appId or script' }); break; }
+          var script;
+          try { script = Buffer.from(scriptB64, 'base64').toString('utf8'); }
+          catch (e) { reply('error', { message: 'base64 decode: ' + e.message }); break; }
+
+          reply('progress', { step: 'Connecting to debugger…' });
+          cdp.inject(appId, script, function (step) {
+            reply('progress', { step: step });
+          })
+          .then(function ()  { reply('ok', { message: 'Injection complete' }); })
+          .catch(function (e) { reply('error', { message: e.message }); });
           break;
         }
-        log('INFO', 'Injecting into app', { appId: appId, scriptBytes: script.length });
-        cdp.inject(appId, script)
-          .then(function () { log('INFO', 'CDP injection complete'); })
-          .catch(function (e) { log('ERROR', 'CDP injection failed', { error: e.message }); });
-        break;
-      }
 
-      case 'installFromUrl':
-        installer.installFromUrl(ctrl.tytUrl);
-        break;
-
-      case 'installLatestFromGitHub': {
-        var payload = {};
-        try { payload = ctrl.tytPayload ? JSON.parse(ctrl.tytPayload) : {}; } catch (_) {}
-        installer.installLatestFromGitHub(payload.repo || 'KrX3D/TizenYouTube');
-        break;
-      }
-
-      default:
-        // Handle ping sent via installFromUrl('__ping__')
-        if (ctrl.tytUrl === '__ping__') {
-          log('INFO', 'Ping — service alive');
-        } else {
-          log('WARN', 'Unknown action', { action: ctrl.tytAction });
+        case 'installFromUrl': {
+          var url = msg.url;
+          if (!url || url === '__ping__') { reply('ok', { message: 'ping' }); break; }
+          reply('progress', { step: 'Downloading…' });
+          installer.installFromUrl(url, function (step) { reply('progress', { step: step }); })
+          .then(function ()  { reply('ok', { message: 'Installer launched' }); })
+          .catch(function (e) { reply('error', { message: e.message }); });
+          break;
         }
-    }
-  } catch (e) {
-    console.log(TAG + '[FATAL] ' + e.message + '\n' + e.stack);
-  }
+
+        case 'installLatestFromGitHub': {
+          var repo = msg.repo || 'KrX3D/TizenYouTube';
+          reply('progress', { step: 'Fetching release info…' });
+          installer.installLatestFromGitHub(repo, function (step) { reply('progress', { step: step }); })
+          .then(function ()  { reply('ok', { message: 'Installer launched' }); })
+          .catch(function (e) { reply('error', { message: e.message }); });
+          break;
+        }
+
+        default:
+          reply('error', { message: 'Unknown action: ' + action });
+      }
+    });
+
+    ws.on('close', function () { log('INFO', 'Client disconnected'); });
+    ws.on('error', function (e) { log('WARN', 'WS error', { error: e.message }); });
+  });
+
+  server.listen(PORT, '127.0.0.1', function () {
+    log('INFO', 'Service listening', { port: PORT });
+  });
+
+  server.on('error', function (e) {
+    log('ERROR', 'Server error', { error: e.message });
+  });
 };

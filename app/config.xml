@@ -34,7 +34,7 @@
   <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
 
   <tizen:service id="krx3dYtV01.service"
-                 auto-restart="false"
+                 auto-restart="true"
                  on-boot="false">
     <tizen:name>TizenYouTubeService</tizen:name>
     <tizen:content src="service/dist/index.js"/>

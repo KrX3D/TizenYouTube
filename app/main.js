@@ -33,24 +33,10 @@
 
   // ── Service dot ───────────────────────────────────────────────────────────
   function setSvcDot(state) {
-    // state: 'ok' | 'fail' | 'unknown'
     if (!svcDot) return;
     svcDot.className = 'svc-dot ' + state;
-    svcDot.title = state === 'ok' ? 'Service: running' :
+    svcDot.title = state === 'ok'   ? 'Service: running' :
                    state === 'fail' ? 'Service: unreachable' : 'Service: unknown';
-  }
-
-  function pingService() {
-    setSvcDot('unknown');
-    RuntimePatchBridge.installFromUrl('__ping__', function (err) {
-      if (err) {
-        setSvcDot('fail');
-        Logger.debug('service', 'Ping failed', { error: err.message });
-      } else {
-        setSvcDot('ok');
-        Logger.debug('service', 'Ping OK');
-      }
-    });
   }
 
   // ── Update badge ──────────────────────────────────────────────────────────
@@ -59,7 +45,7 @@
     if (!badge) return;
     var info = AppUpdate && AppUpdate.getAvailable();
     if (info) {
-      badge.textContent = '⬆ v' + info.version;
+      badge.textContent  = '⬆ v' + info.version;
       badge.style.display = 'inline-block';
     } else {
       badge.style.display = 'none';
@@ -128,12 +114,16 @@
       }},
     { id: 'action.installUpdate', label: '⬇ Install latest',     type: 'action',
       action: function () {
-        // Always install latest from GitHub regardless of whether it is
-        // "newer" than current — user explicitly requested it.
-        AppToast('Fetching latest release…');
+        AppToast('Connecting to installer service…');
         AppUpdate.installLatestForce(function (msg, pct) {
           AppToast(msg);
-          if (pct === 100) updateBadge();
+          if (pct === 100) {
+            updateBadge();
+            // System installer runs separately — user must reopen the app
+            setTimeout(function () {
+              AppToast('Close and reopen the app after installation completes');
+            }, 2500);
+          }
         });
       }},
 
@@ -150,6 +140,22 @@
         Logger.begin('test', 'Manual test log');
         Logger.info('test', 'Test from settings', { source: 'settings' });
         Logger.end('test', 'Manual test log');
+      }},
+    { id: 'action.svcReconnect', label: '🔌 Reconnect service',  type: 'action',
+      action: function () {
+        AppToast('Connecting to service…');
+        setSvcDot('unknown');
+        RuntimePatchBridge.tryConnect(function (err) {
+          if (err) {
+            setSvcDot('fail');
+            AppToast('Service unreachable: ' + err.message);
+            Logger.warn('service', 'Reconnect failed', { error: err.message });
+          } else {
+            setSvcDot('ok');
+            AppToast('Service connected ✓');
+            Logger.info('service', 'Reconnected');
+          }
+        });
       }},
 
     { section: 'Actions' },
@@ -200,7 +206,7 @@
   function activateSetting(def, valEl) {
     if (def.type === 'bool') {
       def.set(!def.get()); refreshValue(valEl, def);
-      AppConfig.save(); // auto-save on every change
+      AppConfig.save();
     } else if (def.type === 'choice') {
       cycleChoice(def, valEl, 1);
       AppConfig.save();
@@ -243,7 +249,6 @@
       field.setAttribute('readonly', '');
       inputDialogOpen = false;
       if (save) cb(field.value);
-      // Restore focus to first settings row
       var rows = settingsList.querySelectorAll('.settings-row');
       if (rows.length) setTimeout(function () { rows[0].focus(); }, 50);
     }
@@ -256,10 +261,10 @@
     };
     okBtn.onkeydown = function (e) {
       e.stopPropagation();
-      if (e.keyCode === 13)                             { close(true); }
-      if (e.keyCode === KEY.BACK)                       { close(false); }
-      if (e.keyCode === KEY.RIGHT)                      { cancelBtn.focus(); }
-      if (e.keyCode === KEY.LEFT || e.keyCode===KEY.UP) { field.focus(); }
+      if (e.keyCode === 13)                              { close(true); }
+      if (e.keyCode === KEY.BACK)                        { close(false); }
+      if (e.keyCode === KEY.RIGHT)                       { cancelBtn.focus(); }
+      if (e.keyCode === KEY.LEFT || e.keyCode === KEY.UP){ field.focus(); }
     };
     cancelBtn.onkeydown = function (e) {
       e.stopPropagation();
@@ -271,9 +276,8 @@
     cancelBtn.onclick = function () { close(false); };
   }
 
-  // ── Readonly inputs (playlist + any standalone inputs) ────────────────────
+  // ── Readonly inputs ───────────────────────────────────────────────────────
   function initReadonlyInputs() {
-    // Only the playlist input — inputDialogField is managed separately
     var inputs = [document.getElementById('playlistId')].filter(Boolean);
     inputs.forEach(function (input) {
       input.setAttribute('readonly', '');
@@ -289,18 +293,15 @@
         if (e.keyCode === KEY.LEFT || e.keyCode === KEY.RIGHT) { e.stopPropagation(); return; }
         if (e.keyCode === KEY.ENTER) {
           e.stopPropagation(); e.preventDefault();
-          input.setAttribute('readonly', '');
-          input.blur();
+          input.setAttribute('readonly', ''); input.blur();
         }
         if (e.keyCode === KEY.BACK) {
           e.stopPropagation(); e.preventDefault();
-          input.setAttribute('readonly', '');
-          input.blur();
+          input.setAttribute('readonly', ''); input.blur();
         }
       });
       input.addEventListener('blur', function () {
         input.setAttribute('readonly', '');
-        // Re-focus the fetchBtn so navigation continues without needing Enter
         setTimeout(function () {
           if (activeOverlay === 'playlist') {
             var btn = document.getElementById('fetchBtn');
@@ -423,7 +424,6 @@
 
     var kc = e.keyCode;
 
-    // Yellow, Red, Green all toggle debug console
     if (kc === KEY.YELLOW || kc === KEY.RED || kc === KEY.GREEN ||
         kc === 403 || kc === 404 || kc === 405) {
       e.preventDefault();
@@ -547,19 +547,19 @@
       window.YouTubeTV.launch();
     });
 
-    // Startup update check — silent
     AppUpdate.startupCheck();
     setTimeout(updateBadge, 6000);
 
-    // Ping service at startup and log result alongside version info
+    // Connect to persistent service via WebSocket — launch it if not running
     setTimeout(function () {
-      RuntimePatchBridge.installFromUrl('__ping__', function (err) {
+      setSvcDot('unknown');
+      RuntimePatchBridge.tryConnect(function (err) {
         if (err) {
           setSvcDot('fail');
-          Logger.warn('main', 'Service not available at startup', { error: err.message });
+          Logger.warn('main', 'Service not reachable at startup', { error: err.message });
         } else {
           setSvcDot('ok');
-          Logger.info('main', 'Service is running', { id: AppIdentity.serviceAppId });
+          Logger.info('main', 'Service connected', { id: AppIdentity.serviceAppId });
         }
       });
     }, 1500);
