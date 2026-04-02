@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://krx3d.com/tizenyoutube"
-        version="0.1.77"
+        version="0.1.78"
         viewmodes="maximized">
   <name>TizenYouTube</name>
   <access origin="*" subdomains="true"></access>
