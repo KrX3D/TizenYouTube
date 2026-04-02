@@ -1,7 +1,7 @@
 {
   "name": "tizenyoutube",
   "private": true,
-  "version": "0.1.58",
+  "version": "0.1.59",
   "description": "Samsung Tizen TV YouTube starter app",
   "scripts": {
     "validate-config-version": "python3 -c \"import json,re,xml.etree.ElementTree as ET; pj=json.load(open('package.json', encoding='utf-8')); root=ET.parse('config.xml').getroot(); version=root.attrib.get('version',''); assert re.match(r'^\\d+\\.\\d+\\.\\d+$', version), 'invalid config.xml version: ' + version; assert pj.get('version') == version, 'package.json version ' + str(pj.get('version')) + ' != config.xml version ' + version; print('version OK', version)\""
