@@ -23,6 +23,7 @@
     }
   }
 
+  // ── Save blob to downloads folder ─────────────────────────────────────────
   function saveBlob(blob, filename) {
     return new Promise(function (resolve, reject) {
       tizen.filesystem.resolve('downloads', function (dir) {
@@ -34,8 +35,10 @@
             try {
               stream.writeBytes(Array.prototype.slice.call(new Uint8Array(reader.result)));
               stream.close();
-              log('INFO', 'File saved', { path: 'downloads/' + filename });
-              resolve('downloads/' + filename);
+              // Return the virtual path tizen.filesystem understands
+              var tizenPath = dir.toURI() + '/' + filename;
+              log('INFO', 'File saved', { path: tizenPath });
+              resolve(tizenPath);
             } catch (e) { reject(e); }
           }, function (e) { reject(e); }, 'UTF-8');
         };
@@ -45,40 +48,53 @@
     });
   }
 
-  function packageInstall(tizenPath) {
+  // ── Install WGT via system installer (no partner cert needed) ─────────────
+  // Uses launchAppControl with operation/install — delegates to Samsung system
+  // package installer which has its own privileges. Same as TizenBrewInstaller.
+  function installWgt(fileUri) {
     return new Promise(function (resolve, reject) {
-      log('INFO', 'Calling tizen.package.install', { path: tizenPath });
+      log('INFO', 'Launching system installer', { uri: fileUri });
       try {
-        tizen.package.install(tizenPath, {
-          onprogress: function (id, pct) { log('INFO', 'Install progress', { id: id, pct: pct }); },
-          oncomplete: function (id)      { log('INFO', 'Install complete', { id: id }); resolve(id); },
-          onerror:    function (e, id)   {
-            log('ERROR', 'Install error', { id: id, error: e ? e.message || String(e) : 'unknown' });
-            reject(new Error('pkg install error: ' + (e ? e.message || String(e) : 'unknown')));
+        var appControl = new tizen.ApplicationControl(
+          'http://tizen.org/appcontrol/operation/install',
+          fileUri
+        );
+        tizen.application.launchAppControl(
+          appControl,
+          null,  // null = let system pick the installer
+          function () {
+            log('INFO', 'System installer launched successfully');
+            resolve();
+          },
+          function (e) {
+            log('ERROR', 'launchAppControl for install failed', { error: e ? e.message : 'unknown' });
+            reject(new Error('install launchAppControl failed: ' + (e ? e.message : 'unknown')));
           }
-        });
+        );
       } catch (e) {
-        log('ERROR', 'tizen.package.install threw', { error: e.message });
+        log('ERROR', 'installWgt threw', { error: e.message });
         reject(e);
       }
     });
   }
 
+  // ── Main install flow ─────────────────────────────────────────────────────
   async function installFromUrl(url) {
     if (!url || url === '__ping__') {
-      log('INFO', 'Ping received — service is alive');
+      log('INFO', 'Ping — service is alive');
       return;
     }
-    log('INFO', 'installFromUrl start', { url: url });
+    log('INFO', 'installFromUrl', { url: url });
     try {
-      log('INFO', 'Fetching WGT', { url: url });
+      log('INFO', 'Downloading WGT', { url: url });
       var res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching WGT');
       var blob = await res.blob();
-      log('INFO', 'WGT downloaded', { bytes: blob.size });
-      var path = await saveBlob(blob, 'TizenYouTube_update.wgt');
-      await packageInstall(path);
-      log('INFO', 'installFromUrl complete');
+      log('INFO', 'Downloaded', { bytes: blob.size });
+
+      var fileUri = await saveBlob(blob, 'TizenYouTube_update.wgt');
+      await installWgt(fileUri);
+      log('INFO', 'Install initiated — system installer is running');
     } catch (e) {
       log('ERROR', 'installFromUrl failed', { error: e.message });
     }
@@ -100,39 +116,28 @@
     }
   }
 
-  // ── Entry point — wrap everything so crashes are visible in sdb dlog ──────
+  // ── Entry point ───────────────────────────────────────────────────────────
   try {
     var ctrl = getCtrl();
-    log('INFO', 'Service started', { action: ctrl.tytAction || '(none)', keys: Object.keys(ctrl) });
+    log('INFO', 'Service started', { action: ctrl.tytAction || '(none)' });
 
     switch (ctrl.tytAction) {
       case 'installFromUrl':
-        if (ctrl.tytUrl) {
-          installFromUrl(ctrl.tytUrl);
-        } else {
-          log('ERROR', 'installFromUrl called without tytUrl');
-        }
+        installFromUrl(ctrl.tytUrl);
         break;
-
       case 'installLatestFromGitHub':
         var payload = {};
         try { payload = ctrl.tytPayload ? JSON.parse(ctrl.tytPayload) : {}; } catch (_) {}
         installLatestFromGitHub(payload.repo);
         break;
-
-      case '__ping__':
-        log('INFO', 'Ping — service alive');
-        break;
-
       default:
-        // Also handle the ping sent via installFromUrl('__ping__')
         if (ctrl.tytUrl === '__ping__') {
           log('INFO', 'Ping via tytUrl — service alive');
         } else {
-          log('WARN', 'Unknown or missing action', { action: ctrl.tytAction, url: ctrl.tytUrl });
+          log('WARN', 'Unknown action', { action: ctrl.tytAction, url: ctrl.tytUrl });
         }
     }
   } catch (e) {
-    console.log(TAG + '[FATAL] Unhandled exception in service: ' + e.message);
+    console.log(TAG + '[FATAL] ' + e.message);
   }
 })();
