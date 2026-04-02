@@ -20,7 +20,6 @@
                  encryption="disable"
                  install-location="auto"
                  hwkey-event="enable"/>
-
   <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support"
                   value="true"/>
 
