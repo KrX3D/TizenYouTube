@@ -21,22 +21,44 @@
                  install-location="auto"
                  hwkey-event="enable"/>
 
+  <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support"
+                  value="true"/>
+
+  <!-- Main app privileges -->
   <tizen:privilege name="http://tizen.org/privilege/internet"/>
   <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+  <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
   <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
   <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
   <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
 
+  <!--
+    Background service — same package krx3dYtV01, separate app ID.
+    Service JS must exist at app/service/service.js (relative to WGT root).
+    packagemanager.install works on developer-mode TVs with SDK distributor cert.
+    Pattern is identical to TizenBrewInstaller client/config.xml.
+  -->
   <tizen:service id="krx3dYtV01.service"
                  auto-restart="false"
                  on-boot="false">
     <tizen:name>TizenYouTubeService</tizen:name>
     <tizen:content src="service/service.js"/>
-    <tizen:description>Package installer service</tizen:description>
+    <tizen:description>Package installer and launcher service</tizen:description>
     <tizen:privilege name="http://tizen.org/privilege/packagemanager.install"/>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
     <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
   </tizen:service>
 
 </widget>
+```
+
+The service file must live at **`app/service/service.js`** — move it from `service/service.js` into the app directory:
+```
+app/
+  service/
+    service.js    ← must be here, inside the WGT root
+  index.html
+  config.xml
+  ...
