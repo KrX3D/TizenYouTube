@@ -1,6 +1,7 @@
 (function () {
   var INJECTION_FILES = [
     'injections/bootstrap.js',
+    'injections/toast.js',
     'injections/fetchInterceptor.js',
     'injections/adblock.js'
   ];
