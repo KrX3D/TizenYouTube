@@ -8,10 +8,17 @@ module.exports.onStart = function () {
 
   log('INFO', 'Service started', { nodeVersion: process.version });
 
-  var http      = require('http');
-  var WSLib     = require('ws');
-  // ws v7 exports differently depending on bundle — handle both
-  var WebSocketServer = WSLib.Server || (WSLib.WebSocket && WSLib.WebSocket.Server) || WSLib;
+  var http = require('http');
+
+  // Mirror TizenBrew's ws version detection — v4.4.3 is Tizen 3, newer Tizens get ws v8
+  var WSLib;
+  if (process.version === 'v4.4.3') {
+    WSLib = require('ws-old');
+  } else {
+    WSLib = require('ws-new');
+  }
+  var WebSocketServer = WSLib.Server || WSLib;
+
   var cdp       = require('./cdp');
   var installer = require('./installer');
 

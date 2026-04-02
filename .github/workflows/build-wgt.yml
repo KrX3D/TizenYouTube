@@ -194,8 +194,8 @@ jobs:
 
       - name: Build web app
         working-directory: app
-        run: tizen build-web -e ".gitignore" -e "README.md" -e "service/src" -e "service/package.json" -e "service/package-lock.json" -e "service/webpack.config.js" -e "service/node_modules"
-
+        run: tizen build-web -e ".gitignore" -e "README.md" -e "service/src" -e "service/package.json" -e "service/package-lock.json" -e "service/webpack.config.js" -e "service/webpack.config.js" -e "service/babel.config.json" -e "service/transpiled" -e "service/node_modules"
+        
       - name: Package WGT
         working-directory: app
         run: |
