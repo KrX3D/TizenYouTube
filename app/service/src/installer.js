@@ -1,158 +1,110 @@
 'use strict';
 
 var fs        = require('fs');
-var net       = require('net');
+var path      = require('path');
+var JSZip     = require('jszip');
+var xml2js    = require('xml2js');
 var nodeFetch = require('node-fetch');
 var fetch     = (typeof nodeFetch === 'function') ? nodeFetch : nodeFetch.default;
+var adb       = require('./adb.js');
 
 var TAG = '[TYT-INST]';
 function log(level, msg, data) {
   console.log(TAG + '[' + level + '] ' + msg + (data ? ' ' + JSON.stringify(data) : ''));
 }
 
-var TEMP_WGT = '/tmp/TizenYouTube_update.wgt';
+var INSTALL_DIR = '/home/owner/share/tmp/sdk_tools';
 
-// ── Install via pkgcmd shell (TizenBrewInstaller's approach) ─────────────────
-// pkgcmd is a privileged binary already on the TV.
-// Running it via ADB shell bypasses Tizen privilege system entirely.
-// This is how TizenBrewInstaller installs WGT files without packagemanager.install.
-function pkgcmdInstall(wgtPath) {
+function mkdirRecursive(dir) {
+  if (fs.existsSync(dir)) return;
+  var parent = path.dirname(dir);
+  if (!fs.existsSync(parent)) mkdirRecursive(parent);
+  fs.mkdirSync(dir);
+}
+
+// Direct copy of TizenBrew's parsePackage
+function parsePackage(buffer) {
+  var parser = new xml2js.Parser();
+  return JSZip.loadAsync(buffer).then(function (zip) {
+    var isWgt = Object.keys(zip.files).indexOf('config.xml') !== -1;
+    var configFile = isWgt ? zip.files['config.xml'] : zip.files['tizen-manifest.xml'];
+    if (!configFile) throw new Error('No config.xml or tizen-manifest.xml in package');
+    return configFile.async('string').then(function (xmlString) {
+      return parser.parseStringPromise(xmlString).then(function (result) {
+        var packageId = isWgt
+          ? result.widget['tizen:application'][0].$.package
+          : result.manifest.$.package;
+        return { packageId: packageId, isWgt: isWgt };
+      });
+    });
+  });
+}
+
+// Direct copy of TizenBrew's installPackage (adbClient path)
+function installPackage(packagePath, packageId, adbClient) {
   return new Promise(function (resolve, reject) {
-    var socket  = net.createConnection({ host: '127.0.0.1', port: 26101 });
-    var buf     = Buffer.alloc(0);
-    var done    = false;
-    var state   = 'transport';
+    log('INFO', 'vd_appinstall', { packageId: packageId, path: packagePath });
+    var stream = adbClient.createStream('shell:0 vd_appinstall ' + packageId + ' ' + packagePath);
+    var data = '';
 
-    // pkgcmd can take up to 30s on slow TVs
-    var timer = setTimeout(function () {
-      if (!done) {
-        done = true;
-        try { socket.destroy(); } catch (_) {}
-        var out = buf.toString('utf8');
-        log('DEBUG', 'pkgcmd timeout — output so far', { out: out.slice(0, 200) });
-        // If we saw "ok" or "success" in output, treat as success
-        if (out.toLowerCase().indexOf('ok') >= 0 || out.toLowerCase().indexOf('success') >= 0) {
-          resolve(out);
-        } else {
-          resolve(out); // resolve anyway — user can check if app updated
-        }
-      }
-    }, 30000);
-
-    function sendAdb(msg) {
-      var hex = ('0000' + msg.length.toString(16)).slice(-4);
-      socket.write(hex + msg);
-    }
-
-    socket.on('connect', function () {
-      log('INFO', 'SDB connected for pkgcmd');
-      sendAdb('host:transport-any');
-    });
-
-    socket.on('data', function (chunk) {
-      buf = Buffer.concat([buf, chunk]);
-      var str = buf.toString('utf8');
-
-      if (state === 'transport') {
-        if (buf.length < 4) return;
-        var p = str.slice(0, 4);
-        if (p === 'OKAY') {
-          state = 'shell';
-          buf   = buf.slice(4);
-          var cmd = 'shell:pkgcmd -i -t wgt -p ' + wgtPath;
-          log('INFO', 'Sending pkgcmd', { cmd: cmd });
-          sendAdb(cmd);
-        } else if (p === 'FAIL') {
-          // Skip transport-any, try shell directly
-          state = 'shell_direct';
-          buf   = Buffer.alloc(0);
-          var cmd2 = 'shell:pkgcmd -i -t wgt -p ' + wgtPath;
-          sendAdb(cmd2);
-        }
-        return;
-      }
-
-      if (state === 'shell' || state === 'shell_direct') {
-        if (buf.length < 4) return;
-        var p2 = str.slice(0, 4);
-        if (p2 === 'OKAY') {
-          state = 'data';
-          buf   = buf.slice(4);
-          log('INFO', 'pkgcmd shell started, reading output');
-        } else {
-          // Treat all data as output
-          state = 'data';
-          log('DEBUG', 'No OKAY on shell, treating as data');
-        }
-        return;
-      }
-
-      if (state === 'data') {
-        log('DEBUG', 'pkgcmd output', { out: buf.toString('utf8').trim().slice(0, 200) });
-        var out = buf.toString('utf8').toLowerCase();
-        // pkgcmd outputs "key[pkgid] install start" then "key[pkgid] install end" or error
-        if (out.indexOf('install end') >= 0 || out.indexOf('success') >= 0) {
-          done = true; clearTimeout(timer);
-          try { socket.destroy(); } catch (_) {}
-          log('INFO', 'pkgcmd install succeeded');
-          resolve(buf.toString('utf8'));
-        } else if (out.indexOf('error') >= 0 || out.indexOf('fail') >= 0) {
-          done = true; clearTimeout(timer);
-          try { socket.destroy(); } catch (_) {}
-          var errOut = buf.toString('utf8');
-          log('ERROR', 'pkgcmd install failed', { out: errOut.slice(0, 200) });
-          reject(new Error('pkgcmd failed: ' + errOut.trim().slice(0, 100)));
-        }
+    stream.on('data', function (chunk) {
+      var s = chunk.toString();
+      data += s + '\n';
+      log('DEBUG', 'vd_appinstall', { out: s.trim().slice(0, 100) });
+      if (data.indexOf('spend time') !== -1) {
+        log('INFO', 'Install succeeded (spend time seen)');
+        resolve(data);
       }
     });
 
-    socket.on('end', function () {
-      if (!done) {
-        done = true; clearTimeout(timer);
-        var out = buf.toString('utf8');
-        log('DEBUG', 'SDB closed, output', { out: out.slice(0, 200) });
-        resolve(out);
-      }
-    });
-
-    socket.on('error', function (e) {
-      if (!done) {
-        done = true; clearTimeout(timer);
-        log('ERROR', 'SDB error for pkgcmd', { error: e.message });
-        reject(new Error('SDB error: ' + e.message));
-      }
-    });
+    stream.on('error', function (e) { reject(new Error('ADB error: ' + e)); });
+    stream.on('end',   function ()  { resolve(data); });
+    stream.on('close', function ()  { resolve(data); });
   });
 }
 
 async function installFromUrl(url, onProgress) {
   onProgress = onProgress || function () {};
-  if (!url || url === '__ping__') { log('INFO', 'Ping'); return; }
-
   log('INFO', 'installFromUrl', { url: url });
-  onProgress('Downloading WGT…');
 
+  onProgress('Downloading WGT…');
   var res = await fetch(url);
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  var buf = await res.buffer();
-  log('INFO', 'Downloaded', { bytes: buf.length });
+  var buffer = await res.buffer();
+  log('INFO', 'Downloaded', { bytes: buffer.length });
 
+  onProgress('Parsing package…');
+  var pkg = await parsePackage(buffer);
+  log('INFO', 'Parsed', pkg);
+
+  // On TV we write directly — no ADB push needed (same as TizenBrew TV path)
   onProgress('Saving…');
-  fs.writeFileSync(TEMP_WGT, buf);
-  log('INFO', 'Saved', { path: TEMP_WGT });
+  mkdirRecursive(INSTALL_DIR);
+  var filePath = INSTALL_DIR + '/package.' + (pkg.isWgt ? 'wgt' : 'tpk');
+  fs.writeFileSync(filePath, buffer);
+  log('INFO', 'Saved', { path: filePath });
 
-  onProgress('Installing via pkgcmd…');
-  var result = await pkgcmdInstall(TEMP_WGT);
-  log('INFO', 'Install result', { result: result.trim().slice(0, 100) });
-  onProgress('Done — close and reopen app to use new version');
+  // Fresh ADB connection for vd_appinstall — same as TizenBrew's parseAndInstall TV path
+  onProgress('Connecting ADB…');
+  var client = await adb.createAdbConnection();
+  log('INFO', 'ADB connected for install');
+
+  onProgress('Installing via vd_appinstall…');
+  var result = await installPackage(filePath, pkg.packageId, client);
+  log('INFO', 'Result', { result: result.trim().slice(0, 100) });
+
+  try { client._stream.end(); client._stream.destroy(); } catch (_) {}
+
+  onProgress('Done — restart app to use new version');
+  return result;
 }
 
 async function installLatestFromGitHub(repo, onProgress) {
   onProgress = onProgress || function () {};
   repo = repo || 'KrX3D/TizenYouTube';
   log('INFO', 'installLatestFromGitHub', { repo: repo });
-  onProgress('Fetching release info…');
 
+  onProgress('Fetching release info…');
   var res  = await fetch('https://api.github.com/repos/' + repo + '/releases/latest');
   var data = await res.json();
   if (!res.ok) throw new Error(data.message || 'HTTP ' + res.status);
@@ -160,9 +112,9 @@ async function installLatestFromGitHub(repo, onProgress) {
   var asset = (data.assets || []).find(function (a) { return /\.wgt$/i.test(a.name || ''); });
   if (!asset) throw new Error('No .wgt asset in release');
 
-  log('INFO', 'Asset found', { name: asset.name, tag: data.tag_name });
+  log('INFO', 'Asset', { name: asset.name, tag: data.tag_name });
   onProgress('Found v' + (data.tag_name || '?') + '…');
-  await installFromUrl(asset.browser_download_url, onProgress);
+  return installFromUrl(asset.browser_download_url, onProgress);
 }
 
 module.exports = { installFromUrl: installFromUrl, installLatestFromGitHub: installLatestFromGitHub };
