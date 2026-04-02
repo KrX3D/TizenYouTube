@@ -1,9 +1,11 @@
 'use strict';
 
 var adb = require('./adb');
-// ws v7 CommonJS export
-var WSLib = require('ws');
-var WebSocket = (typeof WSLib === 'function') ? WSLib : WSLib.WebSocket || WSLib;
+
+// Use the same aliased ws packages as index.js — ws-new (v8) for modern Tizen nodes,
+// ws-old (v4) for the ancient v4.4.3 runtime on Tizen 3.
+var _wsLib = (process.version === 'v4.4.3') ? require('ws-old') : require('ws-new');
+var WebSocket = (typeof _wsLib === 'function') ? _wsLib : (_wsLib.WebSocket || _wsLib);
 
 var TAG = '[TYT-CDP]';
 function log(level, msg, data) {
