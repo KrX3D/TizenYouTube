@@ -1,60 +1,53 @@
 (function () {
+  'use strict';
+
   function hasTizen() {
     return !!(window.tizen && tizen.application && tizen.application.launchAppControl);
   }
 
   function getServiceAppId() {
-    var cfg = window.AppConfig && window.AppConfig.runtimePatch;
-    return (cfg && cfg.serviceAppId) || '';
+    return window.AppIdentity ? AppIdentity.serviceAppId : 'krx3dYtV01.service';
   }
 
-  function requestService(payload, cb) {
-    if (!hasTizen()) {
-      cb(new Error('Tizen application APIs unavailable'));
-      return;
-    }
-
-    var appId = getServiceAppId();
-    if (!appId) {
-      cb(new Error('runtimePatch.serviceAppId is empty'));
-      return;
-    }
-
+  function callService(action, extra, cb) {
+    if (!hasTizen()) { cb(new Error('Tizen APIs unavailable')); return; }
     try {
-      var appControl = new tizen.ApplicationControl(
+      var data = [new tizen.ApplicationControlData('tytAction', [action])];
+      if (extra) {
+        Object.keys(extra).forEach(function (k) {
+          data.push(new tizen.ApplicationControlData(k, [String(extra[k])]));
+        });
+      }
+      var ctrl = new tizen.ApplicationControl(
         'http://tizen.org/appcontrol/operation/service',
-        null,
-        null,
-        null,
-        [
-          new tizen.ApplicationControlData('runtimePatchPayload', [JSON.stringify(payload)])
-        ]
+        null, null, null, data
       );
-
       tizen.application.launchAppControl(
-        appControl,
-        appId,
-        function () { cb(null, { appId: appId }); },
+        ctrl,
+        getServiceAppId(),
+        function ()  { cb(null); },
         function (e) { cb(new Error((e && e.message) || 'launchAppControl failed')); }
       );
-    } catch (e) {
-      cb(e);
-    }
+    } catch (e) { cb(e); }
   }
 
   window.RuntimePatchBridge = {
-    isAvailable: function () {
-      return hasTizen() && !!getServiceAppId();
+    isAvailable:     function () { return hasTizen(); },
+    getServiceAppId: function () { return getServiceAppId(); },
+
+    installFromUrl: function (url, cb) {
+      callService('installFromUrl', { tytUrl: url }, cb || function () {});
     },
-    launchPatchedYouTube: function (payload, cb) {
-      requestService(payload, cb || function () {});
-    },
+
     installFromGitHub: function (repo, cb) {
-      requestService({
-        contractVersion: 1,
-        action: 'installFromGitHub',
-        repo: repo
-      }, cb || function () {});
+      var r = repo || (window.AppIdentity ? AppIdentity.githubRepoFull() : 'KrX3D/TizenYouTube');
+      callService('installLatestFromGitHub',
+        { tytPayload: JSON.stringify({ repo: r }) },
+        cb || function () {});
+    },
+
+    launchPatchedYouTube: function (payload, cb) {
+      cb(new Error('Not implemented'));
     }
   };
 })();

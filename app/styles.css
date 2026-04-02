@@ -36,61 +36,61 @@ body {
 }
 .status-sep { color: #3f4f70; font-size: 18px; }
 
-#gearBtn {
+/* ── Banner actions ────────────────────────────────────── */
+.banner-actions {
   margin-left: auto;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.banner-actions button {
+  margin-top: 0;
   background: #22223a;
-  border: 1px solid #3a3a58;
+  border: 2px solid #3a3a58;
   border-radius: 8px;
   color: #c0c0e0;
-  font-size: 18px;
-  padding: 6px 18px;
-  cursor: pointer;
-  outline: none;
-  margin-top: 0;
-}
-#gearBtn:focus { border-color: #f0c040; background: #28283c; outline: none; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
-
-/* ── YouTube TV container ──────────────────────────────── */
-.yt-container {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1;
-  background: #000;
+  font-size: 17px;
+  padding: 6px 16px;
 }
 
-.yt-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #6688aa;
-  font-size: 22px;
-  gap: 20px;
+/* ── Focus ─────────────────────────────────────────────── */
+/* outline:none globally, we use border+background as the focus indicator.
+   Border-based focus always works on Tizen 5.5 and 6.5.
+   All interactive elements already have border:2px so no layout shift on focus. */
+* { outline: none; }
+
+button:focus {
+  border-color: #f0c040;
+  background: #3d5fcc;
 }
 
-.yt-spinner {
-  width: 48px; height: 48px;
-  border: 4px solid #2a2a4a;
-  border-top-color: #4488cc;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.yt-error {
-  color: #f44;
-  font-size: 20px;
-  text-align: center;
-  padding: 40px;
+.banner-actions button:focus {
+  border-color: #f0c040;
+  background: #2f3150;
 }
 
-/* ── Fallback UI ───────────────────────────────────────── */
-#fallbackUI {
-  position: relative;
-  z-index: 2;
+input:focus {
+  border-color: #f0c040;
+  background: #1c1c2e;
 }
-#fallbackUI.hidden { display: none; }
+
+.settings-row:focus {
+  border-color: #f0c040;
+  background: #222246;
+}
+
+#launchBtn:focus {
+  border-color: #f0c040;
+  background: #1a44cc;
+}
+
+#inputOk:focus,
+#inputCancel:focus,
+#playlistCloseBtn:focus,
+#fetchBtn:focus {
+  border-color: #f0c040;
+  background: #3d5fcc;
+}
 
 /* ── Content ───────────────────────────────────────────── */
 .container { padding: 70px 32px 32px; max-width: 1400px; margin: 0 auto; }
@@ -114,22 +114,29 @@ label { display: block; margin: 10px 0; font-size: 19px; }
   margin-top: 6px;
 }
 .input-row input  { flex: 1; min-width: 0; max-width: 520px; margin-top: 0; }
-.input-row button { margin-top: 0; white-space: nowrap; flex-shrink: 0; border-radius: 10px; }
+.input-row button { margin-top: 0; white-space: nowrap; flex-shrink: 0; }
 
 input {
   width: 100%; max-width: 580px;
   margin-top: 6px; padding: 10px;
-  border-radius: 8px; border: 1px solid #3a3a54;
+  border-radius: 8px;
+  /* 2px border so focus doesn't cause layout shift */
+  border: 2px solid #3a3a54;
   background: #161622; color: #e0e0f0;
-  font-size: 18px; outline: none;
+  font-size: 18px;
+  line-height: 1.4;
+  /* Hide caret — on Tizen 5.5 the caret renders as a full-height vertical bar
+     due to a WebKit bug. Since users type via on-screen keyboard, caret is not needed. */
+  caret-color: transparent;
 }
 input[readonly] { color: #8888aa; cursor: default; }
 
 button {
   margin-top: 12px; padding: 10px 18px;
-  border-radius: 8px; border: 1px solid #444466;
+  border-radius: 8px;
+  border: 2px solid #444466;
   background: #2255cc; color: #fff;
-  font-size: 18px; cursor: pointer; outline: none;
+  font-size: 18px; cursor: pointer;
 }
 
 pre {
@@ -139,19 +146,12 @@ pre {
   font-size: 15px; margin-top: 10px;
 }
 
-/* ── Focus ─────────────────────────────────────────────── */
-:focus         { outline: none; }
-button:focus,
-button:focus-visible   { background: #3d76ff; border-color: #f0c040; box-shadow: 0 0 0 3px rgba(240,192,64,0.6); }
-input:focus,
-input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow: 0 0 0 3px rgba(240,192,64,0.55); }
-
 /* ── Overlay base ──────────────────────────────────────── */
 .overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 100;
-  background: rgba(0,0,0,0.58);
+  background: rgba(0,0,0,0.60);
 }
 .overlay.hidden { display: none; }
 
@@ -188,16 +188,18 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 13px 16px;
+  padding: 12px 16px;
   border-radius: 8px;
-  border: 1px solid #242448;
+  /* Always show a border so focus change is visible (border-color changes) */
+  border: 2px solid #1e1e36;
   font-size: 19px;
   cursor: pointer;
+  background: #18182e;
 }
-.settings-row:focus { outline: none; background: #222246; border-color: #f0c040; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
+.settings-row:hover { background: #1e1e38; }
 .settings-label { color: #b0b0d0; }
 .settings-value { font-weight: bold; max-width: 380px; text-align: right; }
-.hint { color: #8ea2cc; font-size: 15px; margin-top: 14px; }
+.hint { color: #8ea2cc; font-size: 15px; margin-top: 14px; flex-shrink: 0; }
 
 /* ── Debug console ─────────────────────────────────────── */
 .debug-overlay { background: rgba(0,0,0,0.45); }
@@ -206,8 +208,8 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   position: absolute;
   display: flex;
   flex-direction: column;
-  background: rgba(28, 32, 52, 0.99);
-  border: 1px solid #324668;
+  background: rgba(18, 22, 38, 0.98);
+  border: 2px solid #324668;
   border-radius: 10px;
   overflow: hidden;
 }
@@ -217,7 +219,7 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   justify-content: space-between;
   align-items: center;
   padding: 8px 14px;
-  background: #1d2f52;
+  background: #1a2840;
   border-bottom: 1px solid #2e4770;
   font-size: 15px;
   color: #9df2cf;
@@ -232,7 +234,6 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   font-family: 'Courier New', monospace;
   font-size: 14px;
   color: #dce7ff;
-  background: rgba(18, 22, 36, 0.55);
 }
 
 .dl-separator {
@@ -251,10 +252,10 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   border-bottom: 1px solid #1e2f47;
   align-items: baseline;
 }
-.dl-ts   { color: #bfd9ff; min-width: 96px; font-size: 12px; }
+.dl-ts   { color: #7aaae8; min-width: 96px; font-size: 12px; }
 .dl-lvl  { min-width: 52px; font-weight: bold; font-size: 12px; }
 .dl-msg  { color: #eef4ff; flex: 1; }
-.dl-data { width: 100%; color: #d5e4ff; font-size: 12px; padding-left: 164px; margin-top: 1px; }
+.dl-data { width: 100%; color: #b0c8f0; font-size: 12px; padding-left: 164px; margin-top: 1px; }
 
 /* ── Input dialog ──────────────────────────────────────── */
 .input-dialog-panel {
@@ -263,13 +264,12 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   transform: translate(-50%, -50%);
   width: 640px;
   background: #16162a;
-  border: 1px solid #3a3a5a;
+  border: 2px solid #3a3a5a;
   border-radius: 12px;
   padding: 28px;
 }
 .input-dialog-label { margin: 0 0 14px; color: #9090c8; font-size: 20px; }
 .input-dialog-btns { display: flex; gap: 18px; margin-top: 18px; }
-#inputDialogField { caret-color: transparent; }
 
 /* ── Launch screen ─────────────────────────────────────── */
 .launch-screen {
@@ -285,7 +285,7 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
   text-align: center;
   padding: 48px 60px;
   background: #1e1e2e;
-  border: 1px solid #2e2e44;
+  border: 2px solid #2e2e44;
   border-radius: 16px;
   max-width: 700px;
 }
@@ -293,29 +293,16 @@ input:focus-visible    { border-color: #f0c040; background: #1c1c2e; box-shadow:
 .launch-card p  { color: #8888aa; font-size: 20px; margin: 0 0 28px; }
 #launchBtn { font-size: 24px; padding: 14px 36px; }
 
-/* ── Banner actions ────────────────────────────────────── */
-.banner-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 14px;
-  align-items: center;
+/* Update badge shown on launch screen when update is available */
+.update-badge {
+  display: inline-block;
+  background: #cc4400;
+  color: #fff;
+  font-size: 15px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-top: 12px;
 }
-.banner-actions button {
-  margin-top: 0;
-  background: #22223a;
-  border: 1px solid #3a3a58;
-  border-radius: 8px;
-  color: #c0c0e0;
-  font-size: 17px;
-  padding: 7px 16px;
-}
-.banner-actions button:focus { border-color: #f0c040; background: #2f3150; outline: none; box-shadow: 0 0 0 2px rgba(240,192,64,0.45); }
 
 #playlistOverlay .input-row input { max-width: none; }
 #playlistOverlay .input-row { gap: 18px; }
-#playlistOverlay #fetchBtn,
-#playlistOverlay #playlistCloseBtn { border-radius: 10px; }
-#playlistOverlay input:focus,
-#playlistOverlay button:focus { box-shadow: 0 0 0 3px rgba(240,192,64,0.7); }
-
-#launchBtn:focus { box-shadow: 0 0 0 4px rgba(240,192,64,0.75); border-color: #ffd36a; }

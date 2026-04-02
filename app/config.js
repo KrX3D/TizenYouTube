@@ -1,6 +1,15 @@
-
 (function () {
   var STORAGE_KEY = 'tizenYouTubeConfig';
+
+  // ── App identity — change here if repo moves ──────────────────────────────
+  window.AppIdentity = {
+    githubOwner:      'KrX3D',
+    githubRepo:       'TizenYouTube',
+    serviceAppId:     'krx3dYtV01.service',
+    githubRepoFull:   function () { return window.AppIdentity.githubOwner + '/' + window.AppIdentity.githubRepo; },
+    githubApiBase:    function () { return 'https://api.github.com/repos/' + window.AppIdentity.githubRepoFull(); },
+    githubReleasesUrl:function () { return 'https://github.com/' + window.AppIdentity.githubRepoFull() + '/releases'; }
+  };
 
   var defaults = {
     debug: {
@@ -11,7 +20,7 @@
     },
     console: {
       enabled: true,
-      position: 'bottom-right',  // top-left | top-right | bottom-left | bottom-right
+      position: 'bottom-right',
       width: 900,
       height: 500,
       opacity: 0.93
@@ -20,11 +29,6 @@
       apiKey: '',
       clientId: '',
       clientSecret: ''
-    },
-    runtimePatch: {
-      enabled: false,
-      serviceAppId: '',
-      fallbackToDirectNavigation: true
     }
   };
 
@@ -42,14 +46,10 @@
   }
 
   function load() {
-    var cfg;
     try {
       var stored = localStorage.getItem(STORAGE_KEY);
-      cfg = stored ? deepMerge(defaults, JSON.parse(stored)) : deepMerge(defaults, {});
-    } catch (e) {
-      cfg = deepMerge(defaults, {});
-    }
-    return cfg;
+      return stored ? deepMerge(defaults, JSON.parse(stored)) : deepMerge(defaults, {});
+    } catch (e) { return deepMerge(defaults, {}); }
   }
 
   window.AppConfig = load();
