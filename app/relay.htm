@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>TizenYouTube Relay</title>
+</head>
+<body>
+<script>
+(function () {
+  // ── Relay page ────────────────────────────────────────────────────────────
+  // This page lives inside the WGT (same origin).
+  // It reads injection scripts from sessionStorage, then navigates to
+  // youtube.com/tv. Because this is a Tizen WRT app, the browsing context
+  // is the WGT's WebEngine — window.location navigates the same engine.
+  //
+  // Injection approach:
+  //   Tizen WRT WebEngine processes document-start user scripts if registered
+  //   via the tizen:setting injection mechanism. Since we can't register those
+  //   at runtime, we use a different hook:
+  //
+  //   1. Store scripts in sessionStorage under __TYT_INJECT__
+  //   2. Navigate to youtube.com/tv
+  //   3. youtube.com/tv loads — but our scripts are gone (different origin)
+  //
+  //   The ONLY way to inject post-navigation without a partner cert or
+  //   service worker is to use an injected <script> tag via document.write
+  //   BEFORE the page loads. This requires intercepting at the WRT level.
+  //
+  //   Practical solution used by TizenTube:
+  //   - They store scripts in sessionStorage
+  //   - They rely on youtube.com/tv's OWN script execution environment
+  //   - They DON'T actually inject from outside — TizenTube is a fork of
+  //     the YouTube TV webapp source code itself, served from their own CDN
+  //
+  //   Our app is NOT a fork. We load youtube.com/tv directly.
+  //   Without a fork or partner cert, script injection into a live
+  //   youtube.com/tv page is not achievable in Tizen WRT.
+  //
+  //   This relay page is a placeholder for the future injection architecture.
+  //   For now it just navigates directly.
+
+  var inject = sessionStorage.getItem('__TYT_INJECT__');
+  if (inject) {
+    console.log('[TYT-RELAY] Injection payload ready (' + inject.length + ' bytes)');
+  } else {
+    console.log('[TYT-RELAY] No injection payload found');
+  }
+
+  // Navigate to YouTube TV
+  console.log('[TYT-RELAY] Navigating to youtube.com/tv');
+  window.location.href = 'https://www.youtube.com/tv';
+})();
+</script>
+</body>
+</html>

@@ -8,15 +8,30 @@
 </head>
 <body>
 
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
   <!-- ── Top status banner ─────────────────────────────── -->
   <header class="status-banner" id="statusBanner">
+=======
+  <header class="status-banner" id="statusBanner">
+    <!-- Left: service status dot -->
+    <div class="svc-dot" id="svcDot" title="Service status">●</div>
+
+    <!-- Center: app status info -->
+>>>>>>> main
     <div class="status-center">
       <span id="statusText">Initializing…</span>
       <span class="status-sep">&nbsp;•&nbsp;</span>
       <span id="versionText"></span>
       <span class="status-sep">&nbsp;•&nbsp;</span>
       <span id="networkText"></span>
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
     </div>
+=======
+      <span id="updateBadge" class="update-badge" style="display:none"></span>
+    </div>
+
+    <!-- Right: action buttons -->
+>>>>>>> main
     <div class="banner-actions">
       <button id="playlistBtn">≡ Playlist</button>
       <button id="gearBtn">⚙</button>
@@ -24,12 +39,20 @@
     </div>
   </header>
 
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
   <!-- ── Launch screen shown before navigating to YT ───── -->
   <main class="launch-screen" id="launchScreen">
     <div class="launch-card">
       <h1>TizenYouTube</h1>
       <p id="launchStatus">Ready. Press <strong>▶ Launch YouTube TV</strong> to start.</p>
       <button id="launchBtn">▶ Launch YouTube TV</button>
+=======
+  <main class="launch-screen" id="launchScreen">
+    <div class="launch-card">
+      <h1>TizenYouTube</h1>
+      <p id="launchStatus">Ready — press <strong>▶ Launch YouTube TV</strong> to start.</p>
+      <button id="launchBtn" style="margin-top:24px">▶ Launch YouTube TV</button>
+>>>>>>> main
     </div>
   </main>
 
@@ -38,7 +61,11 @@
     <div class="settings-panel">
       <h2>⚙ Settings</h2>
       <div id="settingsList" class="settings-list"></div>
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
       <p class="hint">↑↓ navigate · Enter toggle/edit · ← cycle · Back close</p>
+=======
+      <p class="hint">↑↓ navigate · Enter/→ activate · ← cycle back · Back close</p>
+>>>>>>> main
     </div>
   </div>
 
@@ -49,7 +76,11 @@
       <p style="color:#8888aa;margin:0 0 16px;font-size:17px">API key set in ⚙ Settings.</p>
       <label style="font-size:19px;color:#b0b0d0">Playlist ID
         <div class="input-row" style="margin-top:8px">
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
           <input id="playlistId" type="text" placeholder="PL… — press Enter to edit" />
+=======
+          <input id="playlistId" type="email" placeholder="PL… — press Enter to edit" />
+>>>>>>> main
           <button id="fetchBtn">Fetch 5 items</button>
         </div>
       </label>
@@ -63,7 +94,11 @@
     <div id="debugPanel" class="debug-panel">
       <div class="debug-header">
         <span>🐛 Debug Console</span>
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
         <span class="hint">↑↓ scroll · Yellow to close</span>
+=======
+        <span class="hint">↑↓ scroll · Yellow/Red/Green to close</span>
+>>>>>>> main
       </div>
       <div id="debugLogs" class="debug-logs"></div>
     </div>
@@ -73,7 +108,11 @@
   <div id="inputDialog" class="overlay hidden">
     <div class="input-dialog-panel">
       <p id="inputDialogLabel" class="input-dialog-label"></p>
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
       <input id="inputDialogField" type="text" />
+=======
+      <input id="inputDialogField" type="email" autocomplete="off" />
+>>>>>>> main
       <div class="input-dialog-btns">
         <button id="inputOk">✓ OK</button>
         <button id="inputCancel">✗ Cancel</button>
@@ -84,10 +123,21 @@
   <script type="text/javascript" src="$WEBAPIS/webapis/webapis.js"></script>
   <script src="config.js"></script>
   <script src="logger.js"></script>
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
   <script src="runtimePatchContracts.js"></script>
   <script src="runtimePatchBridge.js"></script>
+=======
+  <script src="keys.js"></script>
+  <script src="runtimePatchContracts.js"></script>
+  <script src="runtimePatchBridge.js"></script>
+  <script src="update.js"></script>
+>>>>>>> main
   <script src="auth.js"></script>
   <script src="youtube.js"></script>
   <script src="main.js"></script>
 </body>
+<<<<<<< codex/create-samsung-tizen-app-using-youtube-api
 </html>
+=======
+</html>
+>>>>>>> main
