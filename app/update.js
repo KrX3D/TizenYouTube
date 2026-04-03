@@ -90,23 +90,95 @@
     return directInstall(info.wgtUrl, onStatus);
   }
 
-  async function directInstall(url, onStatus) {
+  // directInstall: try tizen.download first (async, no UI freeze).
+  // Falls back to fetch+tizen.filesystem if tizen.download is unavailable.
+  function directInstall(url, onStatus) {
     Logger.info('update', 'Direct install', { url: url });
+    var filename = 'TizenYouTube_update.wgt';
+
+    // tizen.download runs off the main thread — no freeze, has progress callbacks
+    if (typeof tizen !== 'undefined' && tizen.download &&
+        typeof DownloadRequest !== 'undefined') {
+      Logger.info('update', 'Using tizen.download API');
+      return new Promise(function (resolve) {
+        status(onStatus, 'Downloading…', 5);
+        var req;
+        try { req = new DownloadRequest(url, 'downloads', filename); }
+        catch (e) {
+          Logger.warn('update', 'DownloadRequest ctor failed, using fetch fallback', { error: e.message });
+          fetchBlobInstall(url, filename, onStatus).then(resolve);
+          return;
+        }
+
+        tizen.download.start(req, {
+          onprogress: function (id, received, total) {
+            var pct = total > 0 ? Math.round(received / total * 70) : 10;
+            status(onStatus, 'Downloading… ' + Math.round(received / 1024) + ' KB', pct);
+          },
+          oncompleted: function (id, fullPath) {
+            Logger.info('update', 'tizen.download complete', { path: fullPath });
+            status(onStatus, 'Installing…', 80);
+            // fullPath is a virtual fs path; resolve downloads dir for the file:// URI
+            tizen.filesystem.resolve('downloads', function (dir) {
+              var base = dir.toURI();
+              if (base.charAt(base.length - 1) !== '/') base += '/';
+              launchSystemInstaller(base + filename)
+                .then(function () {
+                  status(onStatus, 'Installer launched — reopen app when done', 100);
+                  Logger.info('update', 'tizen.download install success');
+                  Logger.end('update', 'installLatest');
+                  resolve(true);
+                })
+                .catch(function (e) {
+                  Logger.error('update', 'Installer launch failed', { error: e.message });
+                  status(onStatus, 'Install failed: ' + e.message, -1);
+                  Logger.end('update', 'installLatest');
+                  resolve(false);
+                });
+            }, function (e) {
+              Logger.error('update', 'resolve downloads failed', { error: e.message });
+              status(onStatus, 'Install failed: ' + e.message, -1);
+              Logger.end('update', 'installLatest');
+              resolve(false);
+            });
+          },
+          onpaused:   function (id) { Logger.warn('update', 'Download paused', { id: id }); },
+          oncanceled: function (id) {
+            Logger.error('update', 'Download canceled');
+            status(onStatus, 'Download canceled', -1);
+            Logger.end('update', 'installLatest');
+            resolve(false);
+          },
+          onfailed: function (id, error) {
+            Logger.warn('update', 'tizen.download failed, fetch fallback', { error: error.message });
+            fetchBlobInstall(url, filename, onStatus).then(resolve);
+          }
+        });
+      });
+    }
+
+    // Fallback: fetch blob then write via tizen.filesystem (synchronous — may freeze UI)
+    return fetchBlobInstall(url, filename, onStatus);
+  }
+
+  // Fetch WGT and save via tizen.filesystem (synchronous write, may freeze for large files)
+  async function fetchBlobInstall(url, filename, onStatus) {
+    Logger.info('update', 'fetchBlob install');
     status(onStatus, 'Downloading…', 0);
     try {
       var res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var blob = await res.blob();
-      status(onStatus, 'Saving…', 50);
-      var fileUri = await saveBlob(blob, 'TizenYouTube_update.wgt');
+      status(onStatus, 'Saving to device — this may take a minute…', 50);
+      var fileUri = await saveBlob(blob, filename);
       status(onStatus, 'Launching installer…', 75);
       await launchSystemInstaller(fileUri);
       status(onStatus, 'Installer launched — reopen app when done', 100);
-      Logger.info('update', 'Direct install success');
+      Logger.info('update', 'fetchBlob install success');
       Logger.end('update', 'installLatest');
       return true;
     } catch (e) {
-      Logger.error('update', 'Direct install failed', { error: e.message });
+      Logger.error('update', 'fetchBlob install failed', { error: e.message });
       status(onStatus, 'Install failed: ' + e.message, -1);
       Logger.end('update', 'installLatest');
       return false;
@@ -125,7 +197,6 @@
             try {
               stream.writeBytes(Array.prototype.slice.call(new Uint8Array(reader.result)));
               stream.close();
-              // Return the full file:// URI — required for operation/install AppControl
               var base = dir.toURI();
               if (base.charAt(base.length - 1) !== '/') base += '/';
               resolve(base + filename);
