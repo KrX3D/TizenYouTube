@@ -2,10 +2,8 @@
 
 var adb = require('./adb');
 
-// Use the same aliased ws packages as index.js — ws-new (v8) for modern Tizen nodes,
-// ws-old (v4) for the ancient v4.4.3 runtime on Tizen 3.
-var _wsLib = (process.version === 'v4.4.3') ? require('ws-old') : require('ws-new');
-var WebSocket = (typeof _wsLib === 'function') ? _wsLib : (_wsLib.WebSocket || _wsLib);
+// ws-old (ws@4) — works on all Tizen Node runtimes without syntax errors.
+var WebSocket = require('ws-old');
 
 var TAG = '[TYT-CDP]';
 function log(level, msg, data) {

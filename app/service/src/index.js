@@ -10,13 +10,10 @@ module.exports.onStart = function () {
 
   var http = require('http');
 
-  // Mirror TizenBrew's ws version detection — v4.4.3 is Tizen 3, newer Tizens get ws v8
-  var WSLib;
-  if (process.version === 'v4.4.3') {
-    WSLib = require('ws-old');
-  } else {
-    WSLib = require('ws-new');
-  }
+  // ws-old (ws@4) works on all Tizen Node runtimes (v4 through v8).
+  // ws-new (ws@8) requires Node ≥10 and its source uses optional-chaining syntax
+  // that crashes the NCC bundle on Tizen 4/5 (Node 6.x).
+  var WSLib = require('ws-old');
   var WebSocketServer = WSLib.Server || WSLib;
 
   var cdp       = require('./cdp');

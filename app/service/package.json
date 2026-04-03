@@ -9,7 +9,6 @@
     "adbhost": "^0.0.2",
     "jszip": "^3.10.1",
     "node-fetch": "2.6.13",
-    "ws-new": "npm:ws@^8.18.0",
     "ws-old": "npm:ws@^4.1.0",
     "xml2js": "^0.6.2"
   },
