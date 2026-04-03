@@ -2,11 +2,17 @@
 
 var fs        = require('fs');
 var path      = require('path');
+var https     = require('https');
 var JSZip     = require('jszip');
 var xml2js    = require('xml2js');
 var nodeFetch = require('node-fetch');
 var fetch     = (typeof nodeFetch === 'function') ? nodeFetch : nodeFetch.default;
 var adb       = require('./adb.js');
+
+// Tizen's Node runtime ships with an incomplete CA bundle — GitHub release redirects
+// go through release-assets.githubusercontent.com whose cert fails verification.
+// Disabling rejectUnauthorized is safe here: we control the download URL (GitHub releases).
+var httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 var TAG = '[TYT-INST]';
 function log(level, msg, data) {
@@ -66,7 +72,7 @@ async function installFromUrl(url, onProgress) {
   log('INFO', 'installFromUrl', { url: url });
 
   onProgress('Downloading WGT…');
-  var res = await fetch(url);
+  var res = await fetch(url, { agent: httpsAgent });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   var buffer = await res.buffer();
   log('INFO', 'Downloaded', { bytes: buffer.length });
@@ -101,7 +107,7 @@ async function installLatestFromGitHub(repo, onProgress) {
   log('INFO', 'installLatestFromGitHub', { repo: repo });
 
   onProgress('Fetching release info…');
-  var res  = await fetch('https://api.github.com/repos/' + repo + '/releases/latest');
+  var res  = await fetch('https://api.github.com/repos/' + repo + '/releases/latest', { agent: httpsAgent });
   var data = await res.json();
   if (!res.ok) throw new Error(data.message || 'HTTP ' + res.status);
 
