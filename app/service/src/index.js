@@ -50,12 +50,9 @@ module.exports.onStart = function () {
           break;
 
         case 'inject': {
-          var appId     = msg.appId;
-          var scriptB64 = msg.script;
-          if (!appId || !scriptB64) { reply('error', { message: 'Missing appId or script' }); break; }
-          var script;
-          try { script = Buffer.from(scriptB64, 'base64').toString('utf8'); }
-          catch (e) { reply('error', { message: 'base64 decode: ' + e.message }); break; }
+          var appId  = msg.appId;
+          var script = msg.script;
+          if (!appId || !script) { reply('error', { message: 'Missing appId or script' }); break; }
           reply('progress', { step: 'Starting injection…' });
           cdp.inject(appId, script, function (step) { reply('progress', { step: step }); })
             .then(function ()  { reply('ok', { message: 'Injection complete' }); })

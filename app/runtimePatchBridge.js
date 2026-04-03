@@ -146,10 +146,7 @@
     tryConnect: function (cb) { connect(cb); },
 
     inject: function (appId, scriptCode, cb, onProgress) {
-      var b64;
-      try { b64 = btoa(unescape(encodeURIComponent(scriptCode))); }
-      catch (e) { cb(new Error('base64 encode: ' + e.message)); return; }
-      send('inject', { appId: appId, script: b64 }, cb, onProgress);
+      send('inject', { appId: appId, script: scriptCode }, cb, onProgress);
     },
 
     installFromUrl: function (url, cb, onProgress) {

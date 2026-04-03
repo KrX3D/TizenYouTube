@@ -75,16 +75,16 @@
 
     if (window.RuntimePatchBridge && RuntimePatchBridge.isAvailable()) {
       Logger.info('update', 'Delegating to service', { url: info.wgtUrl });
-      status(onStatus, 'Sending to installer service…', 10);
+      status(onStatus, 'Downloading and installing…', 10);
       RuntimePatchBridge.installFromUrl(info.wgtUrl, function (err) {
         if (err) {
           Logger.warn('update', 'Service failed, trying direct', { error: err.message });
           directInstall(info.wgtUrl, onStatus);
         } else {
-          status(onStatus, 'Install request sent', 100);
+          status(onStatus, 'Installer launched — reopen app when done', 100);
           Logger.end('update', 'installLatest');
         }
-      });
+      }, null); // suppress per-step progress toasts from service
       return true;
     }
     return directInstall(info.wgtUrl, onStatus);
@@ -255,6 +255,7 @@
     status(onStatus, 'Installing v' + info.version + '…', 10);
 
     if (window.RuntimePatchBridge && RuntimePatchBridge.isAvailable()) {
+      status(onStatus, 'Downloading and installing via service…', 20);
       RuntimePatchBridge.installFromUrl(
         info.wgtUrl,
         function (err) {
@@ -268,7 +269,7 @@
             Logger.end('update', 'installLatestForce');
           }
         },
-        function (step) { status(onStatus, step, 50); }
+        null // suppress per-step progress toasts from service
       );
       return true;
     }
